@@ -18,6 +18,12 @@ type User struct {
 
 func GetUserByDiscordID(db *gorm.DB, discordID string) (*User, error) {
 	user := &User{}
-	result := db.Where("discord_id = ?", discordID).First(user).Preload("ActiveSnail")
+	result := db.Where("discord_id = ?", discordID).First(user)
+	return user, result.Error
+}
+
+func CreateUser(db *gorm.DB, discordID string) (*User, error) {
+	user := &User{DiscordID: discordID}
+	result := db.Create(user)
 	return user, result.Error
 }

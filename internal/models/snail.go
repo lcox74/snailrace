@@ -3,8 +3,12 @@ package models
 import (
 	"math"
 	"math/rand"
+	"os"
+	"strings"
 
 	"gorm.io/gorm"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type SnailMood int
@@ -19,12 +23,14 @@ type Snail struct {
 	gorm.Model
 
 	Name  string `json:"name"`
-	Owner User   `json:"owner" gorm:"foreignKey:DiscordID"` 
+	OwnerID string  `json:"-"`
+	Owner User   `json:"owner"  gorm:"references:DiscordID"` 
+	Active bool   `json:"active" gorm:"default:false"`
 
-	Level uint64 `json:"level"`
-	Exp   uint64 `json:"exp"`
-	Races uint64 `json:"races"`
-	Wins  uint64 `json:"wins"`
+	Level uint64 `json:"level" gorm:"default:1"`
+	Exp   uint64 `json:"exp" gorm:"default:0"`
+	Races uint64 `json:"races" gorm:"default:0"`
+	Wins  uint64 `json:"wins" gorm:"default:0"`
 
 	Mood  float64    `json:"mood" gorm:"default:0"`
 	Stats SnailStats `json:"stats" gorm:"embedded"`
@@ -59,6 +65,57 @@ func (s *Snail) Step() {
 	// Calculate new position
 	s.lastStep = int(rand.Float64()*(maxStep-minStep) + minStep)
 	s.racePosition = int(math.Min(float64(s.racePosition+s.lastStep), 100))
+}
+
+func CreateSnail(db *gorm.DB, owner User, levelType SnailStatLevel) (*Snail, error) {
+	snail := &Snail{
+		Owner: owner,
+		Level: 1,
+	}
+	snail.Stats.GenerateStats(levelType)
+	snail.Name = generateSnailName()
+
+	result := db.Create(snail)
+	return snail, result.Error
+}
+
+func GetAllSnails(db *gorm.DB, owner User) ([]Snail, error) {
+	snails := []Snail{}
+	result := db.Where("owner_id = ?", owner.DiscordID).Find(&snails)
+	return snails, result.Error
+}
+
+func GetActiveSnail(db *gorm.DB, owner User) (*Snail, error) {
+	snail := &Snail{}
+	result := db.Where("owner_id = ? AND active = ?", owner.DiscordID, true).First(snail)
+	return snail, result.Error
+}
+
+func SetActiveSnail(db *gorm.DB, owner User, snail Snail) error {
+	// Set all other snails to inactive
+	db.Model(&Snail{}).Where("owner_id = ?", owner.DiscordID).Update("active", false)
+
+	// Set the new snail to active
+	result := db.Model(&snail).Update("active", true)
+	return result.Error
+}
+
+func generateSnailName() string {
+	nounsFile, err := os.ReadFile("./res/snail_noun.txt")
+	if err != nil {
+		log.Warnf("Error reading snail_noun.txt: %v", err)
+		return "buggy-snail"
+	}
+	adjectivesFile, err := os.ReadFile("./res/snail_adj.txt")
+	if err != nil {
+		log.Warnf("Error reading snail_adj.txt: %v", err)
+		return "buggy-snail"
+	}
+
+	nouns := strings.Split(string(nounsFile), "\n")
+	adjectives := strings.Split(string(adjectivesFile), "\n")
+
+	return adjectives[rand.Intn(len(adjectives))] + "-" + nouns[rand.Intn(len(nouns))]
 }
 
 func generateMoodBias(mood float64) float64 {
