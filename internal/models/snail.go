@@ -19,7 +19,7 @@ type Snail struct {
 	gorm.Model
 
 	Name  string `json:"name"`
-	Owner uint64 `json:"owner"`
+	Owner User   `json:"owner" gorm:"foreignKey:DiscordID"` 
 
 	Level uint64 `json:"level"`
 	Exp   uint64 `json:"exp"`

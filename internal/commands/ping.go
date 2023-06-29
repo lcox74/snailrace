@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/lcox74/snailrace/internal/models"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -11,14 +13,15 @@ import (
 // the bot it working correctly.
 type CommandPing struct{}
 
-func (c *CommandPing) Decleration() discordgo.ApplicationCommand {
-	return discordgo.ApplicationCommand{
+func (c *CommandPing) Decleration() *discordgo.ApplicationCommandOption { 
+	return &discordgo.ApplicationCommandOption{
 		Name:        "ping",
 		Description: "Ping the bot, is it alive?",
+		Type: discordgo.ApplicationCommandOptionSubCommand,
 	}
 }
 
-func (c *CommandPing) Handler() func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *CommandPing) Handler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		response := fmt.Sprintf("Pong <@%s>!", i.Member.User.ID)
 		log.Printf("[CMD] Ping! -> %s\n", response)

@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/lcox74/snailrace/internal/commands"
+	"github.com/lcox74/snailrace/internal/models"
 
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
@@ -14,7 +15,7 @@ const (
 	DiscordGameStatus = "Snail Manager"
 )
 
-func SetupDiscord() *discordgo.Session {
+func SetupDiscord(state *models.State) *discordgo.Session {
 	// Check for Discord Token
 	if os.Getenv(DiscordTokenEnv) == "" {
 		log.Fatal("Unable to find Discord Token in environment variables")
@@ -41,11 +42,43 @@ func SetupDiscord() *discordgo.Session {
 		log.Fatal("Failed opening connection to Discord:", err)
 	}
 
-	// Regiser Commands
-	err = commands.RegisterCommand(discord, &commands.CommandPing{})
+	// Register Commands
+	err = RegisterCommands(state, discord)
 	if err != nil {
-		log.Fatal("Failed registering command:", err)
+		log.Fatal("Failed registering commands:", err)
 	}
 
 	return discord
+}
+
+
+func RegisterCommands(state *models.State, s *discordgo.Session) error {
+	// Commands to register
+
+	cmds := []commands.DiscordAppCommand{
+		&commands.CommandPing{},
+		&commands.CommandInitialise{},
+	}
+
+	// Create Full decleration
+	decleration := &discordgo.ApplicationCommand{
+		Name:        "snailrace",
+		Description: "Snailrace Commands",
+		Options: []*discordgo.ApplicationCommandOption{
+		},
+	}
+
+	for _, cmd := range cmds {
+		err := commands.RegisterCommand(state, s, cmd)
+		if err != nil {
+			log.Warnf("Failed registering command: %s", err)
+			return err
+		}
+
+		decleration.Options = append(decleration.Options, cmd.Decleration())
+	}
+
+	
+	_, err := s.ApplicationCommandCreate(s.State.User.ID, "", decleration)
+	return err
 }

@@ -2,8 +2,11 @@ package internal
 
 import (
 	"github.com/lcox74/snailrace/internal/models"
+
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func SetupDatabase() (*gorm.DB, error) {
@@ -14,10 +17,25 @@ func SetupDatabase() (*gorm.DB, error) {
 	}
 
 	// Migrate the schemas
-	err = db.AutoMigrate(&models.Snail{})
-	if err != nil {
-		return nil, err
+	return db, MigrateSchemas(db)
+}
+
+func MigrateSchemas(db *gorm.DB) error {
+
+	// Schema List
+	schemas := []interface{}{
+		&models.User{},
+		&models.Snail{},
 	}
 
-	return db, nil
+	// Migrate the schemas
+	for _, schema := range schemas {
+		err := db.AutoMigrate(schema)
+		if err != nil {
+			log.Warnf("Failed migrating schema: %s", err)
+			return err
+		}
+	}
+
+	return nil
 }
