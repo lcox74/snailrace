@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	DiscordTokenEnv   = "DISCORD_TOKEN"
-	DiscordGameStatus = "Snail Manager"
-	DiscordCmdPrefix = "snailrace"
+	DiscordTokenEnv       = "DISCORD_TOKEN"
+	DiscordGameStatus     = "Snail Manager"
+	DiscordCmdPrefix      = "snailrace"
 	DiscordCmdDescription = "Snailrace Commands"
 )
 
@@ -53,20 +53,19 @@ func SetupDiscord(state *models.State) *discordgo.Session {
 	return discord
 }
 
-
 func RegisterCommands(state *models.State, s *discordgo.Session) error {
 	// Commands to register
 	cmds := []commands.DiscordAppCommand{
 		&commands.CommandPing{},
 		&commands.CommandInitialise{},
+		&commands.CommandHostRace{},
 	}
 
 	// Create Full decleration
 	decleration := &discordgo.ApplicationCommand{
 		Name:        DiscordCmdPrefix,
 		Description: DiscordCmdDescription,
-		Options: []*discordgo.ApplicationCommandOption{
-		},
+		Options:     []*discordgo.ApplicationCommandOption{},
 	}
 
 	// Register all the commands as handlers

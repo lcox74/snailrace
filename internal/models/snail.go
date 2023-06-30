@@ -22,10 +22,10 @@ const (
 type Snail struct {
 	gorm.Model
 
-	Name  string `json:"name"`
-	OwnerID string  `json:"-"`
-	Owner User   `json:"owner"  gorm:"references:DiscordID"` 
-	Active bool   `json:"active" gorm:"default:false"`
+	Name    string `json:"name"`
+	OwnerID string `json:"-"`
+	Owner   User   `json:"owner"  gorm:"references:DiscordID"`
+	Active  bool   `json:"active" gorm:"default:false"`
 
 	Level uint64 `json:"level" gorm:"default:1"`
 	Exp   uint64 `json:"exp" gorm:"default:0"`
@@ -81,13 +81,13 @@ func CreateSnail(db *gorm.DB, owner User, levelType SnailStatLevel) (*Snail, err
 
 func GetAllSnails(db *gorm.DB, owner User) ([]Snail, error) {
 	snails := []Snail{}
-	result := db.Where("owner_id = ?", owner.DiscordID).Find(&snails)
+	result := db.Where("owner_id = ?", owner.DiscordID).Preload("Owner").Find(&snails)
 	return snails, result.Error
 }
 
 func GetActiveSnail(db *gorm.DB, owner User) (*Snail, error) {
 	snail := &Snail{}
-	result := db.Where("owner_id = ? AND active = ?", owner.DiscordID, true).First(snail)
+	result := db.Where("owner_id = ? AND active = ?", owner.DiscordID, true).Preload("Owner").First(snail)
 	return snail, result.Error
 }
 

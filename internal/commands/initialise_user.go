@@ -10,19 +10,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// CommandPing is a simple ping command, this is used as a basic test to see if
-// the bot it working correctly.
+// CommandInitialise initialise a user, this is used to create a new user and
+// snail if they don't already have one.
 type CommandInitialise struct{}
 
 func (c *CommandInitialise) Decleration() *discordgo.ApplicationCommandOption {
-	return &discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
 		Name:        "init",
 		Description: "Initialise your account if you don't already have one",
-		Type: discordgo.ApplicationCommandOptionSubCommand,
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
 	}
 }
 
-func (c *CommandInitialise) Handler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *CommandInitialise) AppHandler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		log.Printf("[CMD] Init!\n")
 
@@ -34,18 +34,22 @@ func (c *CommandInitialise) Handler(state *models.State) func(s *discordgo.Sessi
 			return
 		}
 
-		// Check if the user doesn't exist, if it doesn't exist we want to 
+		// Check if the user doesn't exist, if it doesn't exist we want to
 		// create it and then create a snail for them.
 		if err == gorm.ErrRecordNotFound {
 			log.Printf("[CMD] Creating record for user %s(%s)\n", i.Member.User.Username, i.Member.User.ID)
 			c.respondCreateNew(s, i, state.DB)
 			return
-		} 
+		}
 
 		// User already exists, lets just remind them of their snail
 		log.Printf("[CMD] Existing user %s(%s) is trying to init again\n", i.Member.User.Username, i.Member.User.ID)
 		c.respondExisting(s, i, state.DB, user)
 	}
+}
+
+func (c *CommandInitialise) ActionHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 }
 
 func (c CommandInitialise) respondCreateNew(s *discordgo.Session, i *discordgo.InteractionCreate, db *gorm.DB) {
@@ -109,7 +113,7 @@ func (c CommandInitialise) respondExisting(s *discordgo.Session, i *discordgo.In
 			)
 			return
 		}
-			
+
 		// We set the first snail as the active snail
 		models.SetActiveSnail(db, *user, snails[0])
 	}
