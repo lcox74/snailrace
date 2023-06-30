@@ -148,12 +148,12 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			err = race.AddSnail(snail)
 			if err != nil {
 				ResponseEmbedInfo(s, i, true, fmt.Sprintf("You're already in the race %s", i.Member.User.Username), "You can't join the race twice, good luck with the race!")
+				return
 			}
 
-			race.Render(s)
-
 			// Respond to the interaction with a message
-			ResponseEmbedSuccess(s, i, true, "Not Implemented", "This feature is not implemented yet. Sorry!")
+			race.Render(s)
+			ResponseEmbedSuccess(s, i, true, fmt.Sprintf("You've joined the race #%s", raceId), "We've just got your snail lined up at the starting line, good luck!")
 		},
 	}
 }
