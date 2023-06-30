@@ -13,15 +13,15 @@ import (
 // the bot it working correctly.
 type CommandPing struct{}
 
-func (c *CommandPing) Decleration() *discordgo.ApplicationCommandOption { 
+func (c *CommandPing) Decleration() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Name:        "ping",
 		Description: "Ping the bot, is it alive?",
-		Type: discordgo.ApplicationCommandOptionSubCommand,
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
 	}
 }
 
-func (c *CommandPing) Handler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (c *CommandPing) AppHandler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		response := fmt.Sprintf("Pong <@%s>!", i.Member.User.ID)
 		log.Printf("[CMD] Ping! -> %s\n", response)
@@ -34,4 +34,8 @@ func (c *CommandPing) Handler(state *models.State) func(s *discordgo.Session, i 
 			},
 		})
 	}
+}
+
+func (c *CommandPing) ActionHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 }

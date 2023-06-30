@@ -1,10 +1,12 @@
 package commands
 
 import (
-	"log"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/lcox74/snailrace/internal/models"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type DiscordAppCommand interface {
@@ -13,9 +15,12 @@ type DiscordAppCommand interface {
 	// the Discord Client with a supplied name and description.
 	Decleration() *discordgo.ApplicationCommandOption
 
-	// The Handler is the function that will be called when this command is
-	// triggered.
-	Handler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate)
+	// The Discord Application Handler is the function that will be called when
+	// this command is triggered.
+	AppHandler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate)
+
+	// The Discord Message Handler for component reactions
+	ActionHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 // RegisterCommand registers a command with Discord and adds a handler for the
@@ -23,22 +28,41 @@ type DiscordAppCommand interface {
 func RegisterCommand(state *models.State, s *discordgo.Session, command DiscordAppCommand) error {
 
 	decleration := command.Decleration()
-	
+
 	// Register a handler for the messageCreate events
-	s.AddHandler(func (s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if i.ApplicationCommandData().Name != "snailrace" {
-			return
+	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
+		switch i.Type {
+		case discordgo.InteractionApplicationCommand:
+			if i.ApplicationCommandData().Name != "snailrace" {
+				return
+			}
+
+			if i.ApplicationCommandData().Options[0].Name == decleration.Name {
+				log.Printf("%s(%s) used CMD[%s]\n", i.Member.User.Username, i.Member.User.ID, i.ApplicationCommandData().Options[0].Name)
+				command.AppHandler(state)(s, i)
+			}
+		case discordgo.InteractionMessageComponent:
+
+			breakDown := strings.Split(i.MessageComponentData().CustomID, ":")
+			if len(breakDown) == 0 {
+				if handler, ok := command.ActionHandler(state)[breakDown[0]]; ok {
+					log.Printf("%s(%s) used Action[%s]\n", i.Member.User.Username, i.Member.User.ID, breakDown[0])
+					handler(s, i)
+				}
+			} else {
+				if handler, ok := command.ActionHandler(state, breakDown[1:]...)[breakDown[0]]; ok {
+					log.Printf("%s(%s) used Action[%s]\n", i.Member.User.Username, i.Member.User.ID, breakDown[0])
+					handler(s, i)
+				}
+			}
+
 		}
 
-		log.Printf("%s used %s\n", i.Member.User.ID, i.ApplicationCommandData().Options[0].Name)
-		if i.ApplicationCommandData().Options[0].Name == decleration.Name {
-			command.Handler(state)(s, i)
-		}
 	})
 
 	return nil
 }
-
 
 func ResponseEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, ephemeral bool, title string, color int, msg string) {
 	flag := discordgo.MessageFlags(0)
@@ -51,8 +75,8 @@ func ResponseEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, ephemer
 		Data: &discordgo.InteractionResponseData{
 			Embeds: []*discordgo.MessageEmbed{
 				{
-					Title: title,
-					Color: color,
+					Title:       title,
+					Color:       color,
 					Description: msg,
 				},
 			},
