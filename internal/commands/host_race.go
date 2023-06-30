@@ -66,6 +66,20 @@ func (c *CommandHostRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		race := state.NewRace(s, i.ChannelID, i.Member.User)
 		race.AddSnail(snail)
 
+		// Add flags to the Race
+		if len(i.ApplicationCommandData().Options) > 0 {
+			for _, opt := range i.ApplicationCommandData().Options[0].Options {
+				switch opt.Name {
+				case "no-bets":
+					race.SetNoBets()
+				case "dont-fill":
+					race.SetNoFill()
+				case "only-one":
+					race.SetOnlyOne()
+				}
+			}
+		}
+
 		// Start the race as a seperate process
 		go models.StartRace(s, race)
 

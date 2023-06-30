@@ -116,5 +116,6 @@ func (r *Race) renderOpenRace(s *discordgo.Session) {
 }
 
 func StartRace(s *discordgo.Session, race *Race) {
+	log.Printf("Starting a race %+v\n", *race)
 	race.Render(s)
 }
