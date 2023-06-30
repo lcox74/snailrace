@@ -55,7 +55,7 @@ func (r *Race) renderOpenRace(s *discordgo.Session) {
 	// Build the Embed Message
 	title := "Race: Open"
 	body := fmt.Sprintf(
-		"A new race has been hosted by %s\n\nRace ID: `%s`\n\nTo join via command, enter the following:\n```\n/snailrace join %s\n```\n**Entrants: (%d/12)**\n",
+		"A new race has been hosted by %s\n\nRace ID: `%s`\n\nTo join via command, enter the following:\n```\n/snailrace join race_id: %s\n```\n**Entrants: (%d/12)**\n",
 		r.Host.Username,
 		r.Id,
 		r.Id,
