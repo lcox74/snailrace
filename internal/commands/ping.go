@@ -39,3 +39,7 @@ func (c *CommandPing) AppHandler(state *models.State) func(s *discordgo.Session,
 func (c *CommandPing) ActionHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 }
+
+func (c *CommandPing) ModalHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
+}

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/lcox74/snailrace/internal/models"
 
@@ -84,25 +85,17 @@ func (c *CommandHostRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		go models.StartRace(s, race)
 
 		// Respond to the interaction with a message
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags: discordgo.MessageFlagsEphemeral,
-				Embeds: []*discordgo.MessageEmbed{
-					{
-						Title:       fmt.Sprintf("You just hosted a race %s!", i.Member.User.Username),
-						Description: "Your snail is officially waiting at the starting line for other snails to join.",
-					},
-				},
-			},
-		})
+		ResponseEmbedSuccess(s, i, true,
+			fmt.Sprintf("You just hosted a race %s!", i.Member.User.Username),
+			"Your snail is officially waiting at the starting line for other snails to join.",
+		)
 	}
 }
 
 func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		models.RaceActionJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			log.Printf("[CMD] Host Form Interaction!\n")
+			log.Printf("[CMD] Host Join Interaction!\n")
 
 			// The Join Action acts as the command /snailrace join <race_id>
 			// If the caller doesn't supply the `race_id` then we need to
@@ -154,6 +147,134 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			// Respond to the interaction with a message
 			race.Render(s)
 			ResponseEmbedSuccess(s, i, true, fmt.Sprintf("You've joined the race #%s", raceId), "We've just got your snail lined up at the starting line, good luck!")
+		},
+		models.RaceActionBet: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			log.Printf("[CMD] Host Bet Interaction!\n")
+			if len(options) != 1 {
+				log.Errorf("Invalid number of options for bet amount: %d -> %s\n", len(options), options[0])
+				ResponseEmbedFail(s, i, true,
+					fmt.Sprintf("I'm sorry %s, but there has been an issue", i.Member.User.Username),
+					"There has been an issue with the action you sent, please try again.",
+				)
+				return
+			}
+
+			// Check if the user is initialised, if the user isn't initialised then
+			// we need to tell them to initialise their account.
+			_, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
+			if err != nil {
+				ResponseEmbedFail(s, i, true,
+					fmt.Sprintf("I'm sorry %s, but you arent initialised", i.Member.User.Username),
+					"You'll need to initialise your account with `/snailrace init` to use this command.",
+				)
+				return
+			}
+
+			// Check if the race exists, if it doesn't then we need to tell the
+			// user
+			raceId := options[0]
+			race, ok := state.Races[raceId]
+			if !ok {
+				ResponseEmbedFail(s, i, true, fmt.Sprintf("Race %s not avaliable", raceId), "There is currently no race with the ID you supplied.")
+				return
+			}
+
+			// Check if the snail exists, if it doesn't then we need to tell the
+			// user
+			data := i.MessageComponentData()
+			snailIndex, _ := strconv.Atoi(data.Values[0])
+			snail := race.GetSnail(snailIndex)
+			if snail == nil {
+				ResponseEmbedFail(s, i, true, fmt.Sprintf("Invalid snail to bet for race %s", raceId), "There is currently no snail with the ID you supplied.")
+				return
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseModal,
+				Data: &discordgo.InteractionResponseData{
+					CustomID: fmt.Sprintf("%s:%s:%d", models.RaceActionBetAmount, raceId, snailIndex),
+					Title:    "Looks like you want to make a bet",
+					Content:  fmt.Sprintf("So you want to make a bet on %s. Well how much? Enter the amount as a number.", snail.Name),
+					Flags:    discordgo.MessageFlagsEphemeral,
+					Components: []discordgo.MessageComponent{
+						discordgo.ActionsRow{
+							Components: []discordgo.MessageComponent{
+								discordgo.TextInput{
+									CustomID:    "amount",
+									Label:       "Custom",
+									Placeholder: "Enter an amount",
+									Style:       discordgo.TextInputShort,
+									MaxLength:   4,
+									Required:    true,
+								},
+							},
+						},
+					},
+				},
+			})
+		},
+	}
+}
+
+func (c *CommandHostRace) ModalHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+		models.RaceActionBetAmount: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			if len(options) != 2 {
+				ResponseEmbedFail(s, i, true,
+					fmt.Sprintf("I'm sorry %s, but there has been an issue", i.Member.User.Username),
+					"There has been an issue with the action you sent, please try again.",
+				)
+				return
+			}
+
+			// Check if the user is initialised, if the user isn't initialised then
+			// we need to tell them to initialise their account.
+			user, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
+			if err != nil {
+				ResponseEmbedFail(s, i, true,
+					fmt.Sprintf("I'm sorry %s, but you arent initialised", i.Member.User.Username),
+					"You'll need to initialise your account with `/snailrace init` to use this command.",
+				)
+				return
+			}
+
+			// Check if the race exists, if it doesn't then we need to tell the
+			// user
+			raceId := options[0]
+			race, ok := state.Races[raceId]
+			if !ok {
+				ResponseEmbedFail(s, i, true, fmt.Sprintf("Race %s not avaliable", raceId), "There is currently no race with the ID you supplied.")
+				return
+			}
+
+			// Check if the snail exists, if it doesn't then we need to tell the
+			// user
+			snailIndex, _ := strconv.Atoi(options[1])
+			snail := race.GetSnail(snailIndex)
+			if snail == nil {
+				ResponseEmbedFail(s, i, true, fmt.Sprintf("Invalid snail to bet for race %s", raceId), "There is currently no snail with the ID you supplied.")
+				return
+			}
+
+			data := i.ModalSubmitData()
+			ammountStr := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+			ammount, err := strconv.Atoi(ammountStr)
+			if err != nil {
+				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s but we couldn't place the bet", i.Member.User.Username), "You've entered an invalid amount, please try again.")
+				return
+			}
+
+			// Check if the user has enough money to make the bet
+			if int(user.Money) < ammount {
+				log.Warnf("Player %s tried to bet %d g but only has %d g", i.Member.User.Username, ammount, user.Money)
+				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s but you can't afford the bet", i.Member.User.Username), fmt.Sprintf("You don't have enough money to place that bet, you only have %d g.", user.Money))
+				return
+			}
+
+			// Place the bet and remove the money from the user
+			race.PlaceBet(snailIndex, ammount, user.DiscordID)
+			user.RemoveMoney(state.DB, uint64(ammount))
+			ResponseEmbedSuccess(s, i, true, fmt.Sprintf("Bet placed for %s", snail.Name), fmt.Sprintf("You've placed a bet for %s of %d g", snail.Name, ammount))
 		},
 	}
 }
