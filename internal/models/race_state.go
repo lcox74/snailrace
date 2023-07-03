@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -30,8 +31,10 @@ const (
 )
 
 var (
+	ErrInvalidSnail  = fmt.Errorf("invalid snail")
 	ErrRaceClosed    = fmt.Errorf("race is closed")
 	ErrAlreadyJoined = fmt.Errorf("snail already joined")
+	ErrBetsClosed    = fmt.Errorf("bets are closed")
 )
 
 type RaceBet struct {
@@ -49,9 +52,9 @@ type Race struct {
 	Host    *discordgo.User
 	Message *discordgo.Message
 
-	NoBets  bool
-	NoFill  bool
-	OnlyOne bool
+	NoBets   bool
+	DontFill bool
+	OnlyOne  bool
 
 	Snails []*Snail
 	Bets   []RaceBet
@@ -66,14 +69,28 @@ func (r *Race) SetupNewRace(id string, channelId string, host *discordgo.User, e
 	r.Snails = make([]*Snail, 0)
 }
 
+// Flag setters
 func (r *Race) SetNoBets() {
 	r.NoBets = true
 }
-func (r *Race) SetNoFill() {
-	r.NoFill = true
+func (r *Race) SetDontFill() {
+	r.DontFill = true
 }
 func (r *Race) SetOnlyOne() {
 	r.OnlyOne = true
+}
+
+// If the race doesn't have the dont-fill flag, and the race has less than 4
+// racers, then generate random snails to meet the 4 racer requirement.
+func (r *Race) autoFillRace() {
+	if r.DontFill {
+		return
+	}
+
+	for len(r.Snails) < 4 {
+		snail := CreateDummySnail(RandomSnail)
+		r.Snails = append(r.Snails, snail)
+	}
 }
 
 func (r *Race) AddSnail(snail *Snail) error {
@@ -97,9 +114,13 @@ func (r *Race) GetSnail(index int) *Snail {
 
 	return r.Snails[index]
 }
-func (r *Race) PlaceBet(index int, amount int, userDiscordId string) {
+func (r *Race) PlaceBet(index int, amount int, userDiscordId string) error {
+	if r.Stage != RaceStageBetting || r.NoBets {
+		return ErrBetsClosed
+	}
+
 	if index < 0 || index >= len(r.Snails) {
-		return
+		return ErrInvalidSnail
 	}
 
 	r.Bets = append(r.Bets, RaceBet{
@@ -107,6 +128,7 @@ func (r *Race) PlaceBet(index int, amount int, userDiscordId string) {
 		Amount:        amount,
 		SnailIndex:    index,
 	})
+	return nil
 }
 
 func StartRace(s *discordgo.Session, race *Race) {
@@ -119,11 +141,17 @@ func StartRace(s *discordgo.Session, race *Race) {
 
 	// Race Open Stage
 	race.Render(s)
-	time.Sleep(10 * time.Second)
+	time.Sleep(RaceOpenTimeout)
 	race.Stage = RaceStageBetting
 
 	// Race Betting Stage
 	race.Render(s)
+	if race.NoBets {
+		time.Sleep(RaceNoBettingTimeout)
+	} else {
+		time.Sleep(RaceBettingTimeout)
+	}
+	race.Stage = RaceStageBetting
 }
 
 func (r *Race) Render(s *discordgo.Session) {
@@ -198,6 +226,16 @@ func (r *Race) renderOpenRace(s *discordgo.Session) {
 }
 
 func (r *Race) renderBetting(s *discordgo.Session) {
+
+	// Autofill the Race
+	if !r.DontFill {
+		r.autoFillRace()
+	}
+
+	if r.NoBets {
+		r.renderNoBetting(s)
+	}
+
 	// Build the Embed Message
 	title := "Race: Bets are Open"
 	body := fmt.Sprintf(
@@ -206,11 +244,16 @@ func (r *Race) renderBetting(s *discordgo.Session) {
 		len(r.Snails),
 	)
 
+	odds := r.generateOdds()
 	select_options := make([]discordgo.SelectMenuOption, 0)
 
-	// Add the snails to the body as entrants `index - <snail_name>(<@owner_id>)`
+	// Add the snails to the body as entrants `index - <oods> <snail_name>(<@owner_id>)`
 	for index, snail := range r.Snails {
-		body += fmt.Sprintf("%2d - %s(<@%s>)\n", index, snail.Name, snail.Owner.DiscordID)
+		if snail.Level == 0 {
+			body += fmt.Sprintf("%2d - `%.02f` %s\n", index, odds[index], snail.Name)
+		} else {
+			body += fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, odds[index], snail.Name, snail.Owner.DiscordID)
+		}
 
 		select_options = append(
 			select_options,
@@ -245,9 +288,73 @@ func (r *Race) renderBetting(s *discordgo.Session) {
 
 	s.ChannelMessageEditComplex(edit)
 }
+
+func (r *Race) renderNoBetting(s *discordgo.Session) {
+	// Build the Embed Message
+	title := "Race: Ready to Race"
+	body := fmt.Sprintf(
+		"We are ready to race, here are the entrants:\n\nRace ID: `%s`\n\n**Entrants: (%d/12)**\n",
+		r.Id,
+		len(r.Snails),
+	)
+
+	// Add the snails to the body as entrants `index - <odds> <snail_name>(<@owner_id>)`
+	odds := r.generateOdds()
+	for index, snail := range r.Snails {
+		if snail.Level == 0 {
+			body += fmt.Sprintf("%2d - `%.02f` %s\n", index, odds[index], snail.Name)
+		} else {
+			body += fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, odds[index], snail.Name, snail.Owner.DiscordID)
+		}
+	}
+
+	// Edit the message to reflect the current state of the race, in this
+	// sense it will mainly update the entrants
+	edit := discordgo.NewMessageEdit(r.ChannelId, r.Message.ID)
+	edit.Embeds = []*discordgo.MessageEmbed{
+		{
+			Title:       title,
+			Description: body,
+			Color:       0x2ecc71,
+		},
+	}
+
+	s.ChannelMessageEditComplex(edit)
+}
+
 func (r *Race) renderRunning(s *discordgo.Session) {
 
 }
 func (r *Race) renderFinished(s *discordgo.Session) {
 
+}
+
+func (r *Race) generateOdds() []float64 {
+	odds := make([]float64, len(r.Snails))
+
+	sum_speed, sum_stamina := 0.0, 0.0
+	for _, snail := range r.Snails {
+		sum_speed += snail.Stats.Speed
+		sum_stamina += snail.Stats.Stamina
+	}
+
+	for index, snail := range r.Snails {
+		// Calculate modifier from normalized stats
+		norm_speed := snail.Stats.Speed / sum_speed
+		norm_stamina := snail.Stats.Stamina / sum_stamina
+		modifier := 1.0 - (norm_speed + norm_stamina)
+
+		// Check the snail's win history
+		win_rate := 1.0
+		if snail.Wins > 0 {
+			win_rate = 1.0 - (float64(snail.Wins) / float64(snail.Races))
+			if win_rate == 0.0 {
+				win_rate = 1.0
+			}
+		}
+
+		odds[index] = math.Min(10.0*modifier*win_rate, 1.0)
+	}
+
+	return odds
 }

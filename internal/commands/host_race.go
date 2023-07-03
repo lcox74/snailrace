@@ -74,7 +74,7 @@ func (c *CommandHostRace) AppHandler(state *models.State) func(s *discordgo.Sess
 				case "no-bets":
 					race.SetNoBets()
 				case "dont-fill":
-					race.SetNoFill()
+					race.SetDontFill()
 				case "only-one":
 					race.SetOnlyOne()
 				}
@@ -271,9 +271,16 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			}
 
 			// Place the bet and remove the money from the user
-			race.PlaceBet(snailIndex, ammount, user.DiscordID)
-			user.RemoveMoney(state.DB, uint64(ammount))
+			switch race.PlaceBet(snailIndex, ammount, user.DiscordID) {
+			case models.ErrInvalidSnail:
+				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s that snail doesn't exist", i.Member.User.Username), "The snail you have selected to bet is invalid, the snail isn't in the race.")
+				return
+			case models.ErrBetsClosed:
+				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s Bets are Closed", i.Member.User.Username), "Bet's are closed so we can't accept your bet.")
+				return
+			}
 			ResponseEmbedSuccess(s, i, true, fmt.Sprintf("Bet placed for %s", snail.Name), fmt.Sprintf("You've placed a bet for %s of %d g", snail.Name, ammount))
+			user.RemoveMoney(state.DB, uint64(ammount))
 		},
 	}
 }

@@ -79,6 +79,14 @@ func CreateSnail(db *gorm.DB, owner User, levelType SnailStatLevel) (*Snail, err
 	return snail, result.Error
 }
 
+func CreateDummySnail(levelType SnailStatLevel) *Snail {
+	snail := &Snail{Level: 0}
+	snail.Stats.GenerateStats(levelType)
+	snail.Name = generateSnailName()
+
+	return snail
+}
+
 func GetAllSnails(db *gorm.DB, owner User) ([]Snail, error) {
 	snails := []Snail{}
 	result := db.Where("owner_id = ?", owner.DiscordID).Preload("Owner").Find(&snails)
