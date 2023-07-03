@@ -279,6 +279,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s Bets are Closed", i.Member.User.Username), "Bet's are closed so we can't accept your bet.")
 				return
 			}
+
 			ResponseEmbedSuccess(s, i, true, fmt.Sprintf("Bet placed for %s", snail.Name), fmt.Sprintf("You've placed a bet for %s of %d g", snail.Name, amount))
 			user.RemoveMoney(state.DB, uint64(amount))
 		},
