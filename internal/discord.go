@@ -60,6 +60,7 @@ func RegisterCommands(state *models.State, s *discordgo.Session) error {
 		&commands.CommandInitialise{},
 		&commands.CommandHostRace{},
 		&commands.CommandJoinRace{},
+		&commands.BetCommand{},
 	}
 
 	// Create Full decleration
