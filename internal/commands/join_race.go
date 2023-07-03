@@ -82,9 +82,12 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		}
 
 		// Add the snail to the race and
-		err = race.AddSnail(snail)
-		if err != nil {
+		switch race.AddSnail(snail) {
+		case models.ErrAlreadyJoined:
 			ResponseEmbedInfo(s, i, true, fmt.Sprintf("You're already in the race %s", i.Member.User.Username), "You can't join the race twice, good luck with the race!")
+			return
+		case models.ErrRaceClosed:
+			ResponseEmbedInfo(s, i, true, fmt.Sprintf("That race is closed %s", i.Member.User.Username), "The race you have just tried to join is currently closed.")
 			return
 		}
 
@@ -94,5 +97,9 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 }
 
 func (c *CommandJoinRace) ActionHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
+}
+
+func (c *CommandJoinRace) ModalHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 }

@@ -27,3 +27,15 @@ func CreateUser(db *gorm.DB, discordID string) (*User, error) {
 	result := db.Create(user)
 	return user, result.Error
 }
+
+func (user *User) RemoveMoney(db *gorm.DB, amount uint64) error {
+	user.Money -= amount
+	result := db.Save(user)
+	return result.Error
+}
+
+func (user *User) AddMoney(db *gorm.DB, amount uint64) error {
+	user.Money += amount
+	result := db.Save(user)
+	return result.Error
+}

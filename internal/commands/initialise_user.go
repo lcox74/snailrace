@@ -52,6 +52,10 @@ func (c *CommandInitialise) ActionHandler(state *models.State, options ...string
 	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 }
 
+func (c *CommandInitialise) ModalHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
+}
+
 func (c CommandInitialise) respondCreateNew(s *discordgo.Session, i *discordgo.InteractionCreate, db *gorm.DB) {
 	// Create a new user
 	user, err := models.CreateUser(db, i.Member.User.ID)

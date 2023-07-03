@@ -21,6 +21,9 @@ type DiscordAppCommand interface {
 
 	// The Discord Message Handler for component reactions
 	ActionHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)
+
+	// The Discord Modal Handler for modal sumbits
+	ModalHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 // RegisterCommand registers a command with Discord and adds a handler for the
@@ -57,6 +60,19 @@ func RegisterCommand(state *models.State, s *discordgo.Session, command DiscordA
 				}
 			}
 
+		case discordgo.InteractionModalSubmit:
+			breakDown := strings.Split(i.ModalSubmitData().CustomID, ":")
+			if len(breakDown) == 0 {
+				if handler, ok := command.ModalHandler(state)[breakDown[0]]; ok {
+					log.Printf("%s(%s) used Modal[%s]\n", i.Member.User.Username, i.Member.User.ID, breakDown[0])
+					handler(s, i)
+				}
+			} else {
+				if handler, ok := command.ModalHandler(state, breakDown[1:]...)[breakDown[0]]; ok {
+					log.Printf("%s(%s) used Modal[%s]\n", i.Member.User.Username, i.Member.User.ID, breakDown[0])
+					handler(s, i)
+				}
+			}
 		}
 
 	})
