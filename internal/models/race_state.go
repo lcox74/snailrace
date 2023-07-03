@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -152,6 +151,8 @@ func StartRace(s *discordgo.Session, race *Race) {
 		time.Sleep(RaceBettingTimeout)
 	}
 	race.Stage = RaceStageBetting
+
+	log.Println("Betting Stage Complete")
 }
 
 func (r *Race) Render(s *discordgo.Session) {
@@ -353,7 +354,12 @@ func (r *Race) generateOdds() []float64 {
 			}
 		}
 
-		odds[index] = math.Min(10.0*modifier*win_rate, 1.0)
+		// Limit the odd
+		odd := 10.0 * modifier * win_rate
+		if odd < 1.0 {
+			odd = 1.0
+		}
+		odds[index] = odd
 	}
 
 	return odds
