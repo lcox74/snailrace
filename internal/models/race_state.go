@@ -151,8 +151,6 @@ func StartRace(s *discordgo.Session, race *Race) {
 		time.Sleep(RaceBettingTimeout)
 	}
 	race.Stage = RaceStageBetting
-
-	log.Println("Betting Stage Complete")
 }
 
 func (r *Race) Render(s *discordgo.Session) {
