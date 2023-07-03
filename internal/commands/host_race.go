@@ -190,22 +190,33 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseModal,
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					CustomID: fmt.Sprintf("%s:%s:%d", models.RaceActionBetAmount, raceId, snailIndex),
-					Title:    "Looks like you want to make a bet",
-					Content:  fmt.Sprintf("So you want to make a bet on %s. Well how much? Enter the amount as a number.", snail.Name),
-					Flags:    discordgo.MessageFlagsEphemeral,
+					Flags: discordgo.MessageFlagsEphemeral,
+					Embeds: []*discordgo.MessageEmbed{
+						{
+							Title:       "Looks like you want to make a bet",
+							Color:       0x2ecc71,
+							Description: fmt.Sprintf("So you want to make a bet on %s. Well how much? Enter the amount as a number.", snail.Name),
+						},
+					},
 					Components: []discordgo.MessageComponent{
 						discordgo.ActionsRow{
 							Components: []discordgo.MessageComponent{
-								discordgo.TextInput{
-									CustomID:    "amount",
-									Label:       "Custom",
-									Placeholder: "Enter an amount",
-									Style:       discordgo.TextInputShort,
-									MaxLength:   4,
-									Required:    true,
+								discordgo.Button{
+									Label:    "5g",
+									Style:    discordgo.SuccessButton,
+									CustomID: fmt.Sprintf("%s:%s:%d:%d", models.RaceActionBetAmount, raceId, snailIndex, 5),
+								},
+								discordgo.Button{
+									Label:    "10g",
+									Style:    discordgo.SuccessButton,
+									CustomID: fmt.Sprintf("%s:%s:%d:%d", models.RaceActionBetAmount, raceId, snailIndex, 10),
+								},
+								discordgo.Button{
+									Label:    "20g",
+									Style:    discordgo.SuccessButton,
+									CustomID: fmt.Sprintf("%s:%s:%d:%d", models.RaceActionBetAmount, raceId, snailIndex, 20),
 								},
 							},
 						},
@@ -213,13 +224,8 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 				},
 			})
 		},
-	}
-}
-
-func (c *CommandHostRace) ModalHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		models.RaceActionBetAmount: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			if len(options) != 2 {
+			if len(options) != 3 {
 				ResponseEmbedFail(s, i, true,
 					fmt.Sprintf("I'm sorry %s, but there has been an issue", i.Member.User.Username),
 					"There has been an issue with the action you sent, please try again.",
@@ -256,15 +262,8 @@ func (c *CommandHostRace) ModalHandler(state *models.State, options ...string) m
 				return
 			}
 
-			data := i.ModalSubmitData()
-			ammountStr := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-			ammount, err := strconv.Atoi(ammountStr)
-			if err != nil {
-				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s but we couldn't place the bet", i.Member.User.Username), "You've entered an invalid amount, please try again.")
-				return
-			}
-
 			// Check if the user has enough money to make the bet
+			ammount, _ := strconv.Atoi(options[2])
 			if int(user.Money) < ammount {
 				log.Warnf("Player %s tried to bet %d g but only has %d g", i.Member.User.Username, ammount, user.Money)
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s but you can't afford the bet", i.Member.User.Username), fmt.Sprintf("You don't have enough money to place that bet, you only have %d g.", user.Money))
@@ -277,4 +276,8 @@ func (c *CommandHostRace) ModalHandler(state *models.State, options ...string) m
 			ResponseEmbedSuccess(s, i, true, fmt.Sprintf("Bet placed for %s", snail.Name), fmt.Sprintf("You've placed a bet for %s of %d g", snail.Name, ammount))
 		},
 	}
+}
+
+func (c *CommandHostRace) ModalHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 }
