@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -21,6 +22,7 @@ const (
 	RaceOpenTimeout      = 10 * time.Second
 	RaceBettingTimeout   = 30 * time.Second
 	RaceNoBettingTimeout = 10 * time.Second
+	RaceStepInterval     = 10 * time.Millisecond
 	RaceTimeout          = 10 * time.Minute
 
 	// Action Ids
@@ -42,6 +44,11 @@ type RaceBet struct {
 	SnailIndex    int
 }
 
+type RaceSnailPos struct {
+	Position int
+	Frame    int
+	Snail    *Snail
+}
 type Race struct {
 	Id        string
 	ChannelId string
@@ -55,9 +62,10 @@ type Race struct {
 	DontFill bool
 	OnlyOne  bool
 
-	Snails []*Snail
-	Bets   []RaceBet
-	Odds   []float64
+	Snails  []*Snail
+	Bets    []RaceBet
+	Odds    []float64
+	Winners []RaceSnailPos
 }
 
 func (r *Race) SetupNewRace(id string, channelId string, host *discordgo.User, endRace func()) {
@@ -139,10 +147,6 @@ func StartRace(s *discordgo.Session, race *Race) {
 		return
 	}
 
-	for _, snail := range race.Snails {
-		snail.NewRace()
-	}
-
 	// Open Stage
 	race.Render(s)
 	time.Sleep(RaceOpenTimeout)
@@ -164,21 +168,38 @@ func StartRace(s *discordgo.Session, race *Race) {
 	race.Stage = RaceStageRunning
 
 	// Race Stage
-	race.Render(s)
-	snailsFinished := 0
-	for snailsFinished != len(race.Snails) {
-		snailsFinished = 0
-		for _, snail := range race.Snails {
-			snail.Step()
-			if snail.racePosition >= MaxRaceLength {
-				snailsFinished++
-			}
-		}
+	firstRace, raceAttempt := true, 0
+	for firstRace || (race.racePosTie() && race.OnlyOne && raceAttempt < 5) {
 		race.Render(s)
-		log.Printf("Odds: %+v", race.Odds)
-		log.Println("-------------------------")
-		time.Sleep(1 * time.Second)
+		firstRace = false
+		raceAttempt++
+		race.Winners = make([]RaceSnailPos, 0)
+
+		// Reset the snails to start at the beginning
+		for _, snail := range race.Snails {
+			snail.NewRace()
+		}
+
+		// Race until 3 snails have finished (or all snails if there are less than 3)
+		snailsFinished, frame := 0, 0
+		requiredFinished := int(math.Min(float64(len(race.Snails)), 3.0))
+		for snailsFinished < requiredFinished {
+			snailsFinished = 0
+			for _, snail := range race.Snails {
+				snail.Step()
+				if snail.racePosition >= MaxRaceLength {
+					snailsFinished++
+					race.racePosAdd(snail, frame)
+				}
+			}
+			race.Render(s)
+			frame++
+			log.Printf("[%d/%d] ---------- Frame: %d ----------\n", len(race.Winners), requiredFinished, frame)
+		}
 	}
+
+	// Finished Stage
+	log.Printf("Race is finished with the winners: %+v\n", race.Winners)
 }
 
 func (r *Race) Render(s *discordgo.Session) {
@@ -351,7 +372,7 @@ func (r *Race) renderRunning(s *discordgo.Session) {
 	entrants := fmt.Sprintf("**Entrants: (%d/12):**\n", len(r.Snails))
 
 	track := fmt.Sprintf("```\nRace ID: %s\n\n", r.Id)
-	track += "                        🏁\n"
+	track += "                          🏁\n"
 	track += "  |-----------------------|\n"
 
 	// Build snails
@@ -418,4 +439,48 @@ func (r *Race) generateOdds() {
 		}
 		r.Odds[index] = odd
 	}
+}
+
+func (r Race) racePosContains(snail *Snail) bool {
+	for _, p := range r.Winners {
+		if p.Snail == snail {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Race) racePosAdd(snail *Snail, frame int) {
+	if r.racePosContains(snail) {
+		return
+	}
+
+	pos := 1
+	for _, p := range r.Winners {
+		if p.Position >= pos {
+			pos = p.Position + 1
+		}
+
+		if p.Frame == frame {
+			pos = p.Position
+			break
+		}
+	}
+
+	r.Winners = append(r.Winners, RaceSnailPos{
+		Position: pos,
+		Snail:    snail,
+		Frame:    frame,
+	})
+}
+
+func (r Race) racePosTie() bool {
+	for _, a := range r.Winners {
+		for _, b := range r.Winners {
+			if a.Position == b.Position && a.Snail != b.Snail {
+				return true
+			}
+		}
+	}
+	return false
 }

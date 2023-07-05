@@ -44,7 +44,8 @@ type Snail struct {
 }
 
 func (s *Snail) NewRace() {
-
+	s.racePosition = 0
+	s.currentStamina = s.Stats.Stamina
 }
 
 // Step calculates the next step for the snail, based on the snail's stats and
