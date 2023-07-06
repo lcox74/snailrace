@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"os"
@@ -17,6 +18,9 @@ const (
 	MoodSad     SnailMood = -1
 	MoodHappy   SnailMood = 1
 	MoodFocused SnailMood = 0
+
+	MaxSnailStep  float64 = 5.0
+	MaxRaceLength int     = 100
 )
 
 type Snail struct {
@@ -35,8 +39,13 @@ type Snail struct {
 	Mood  float64    `json:"mood" gorm:"default:0"`
 	Stats SnailStats `json:"stats" gorm:"embedded"`
 
-	racePosition int `json:"-" gorm:"-"`
-	lastStep     int `json:"-" gorm:"-"`
+	racePosition   float64 `json:"-" gorm:"-"`
+	currentStamina float64 `json:"-" gorm:"-"`
+}
+
+func (s *Snail) NewRace() {
+	s.racePosition = 0
+	s.currentStamina = s.Stats.Stamina
 }
 
 // Step calculates the next step for the snail, based on the snail's stats and
@@ -46,25 +55,38 @@ func (s *Snail) Step() {
 	// Generate Random Bias
 	bias := generateMoodBias(s.Mood)
 
-	// Calculate base interval before bias and acceleration
-	maxStep := 10.0 + s.Stats.Speed
-	minStep := math.Min(s.Stats.Stamina, maxStep-5)
-	avgStep := (maxStep + minStep) / 2.0
+	if s.currentStamina > 0 {
+		// Calculate max step the snail can take
+		maxStep := s.Stats.Speed * (s.currentStamina / s.Stats.Stamina)
 
-	// Calculate acceleration factor with weight and prevStep
-	acceleration := (s.Stats.Weight-5)/5.0 + (float64(s.lastStep)-avgStep)/5.0
-	minStep = math.Max(
-		0,
-		minStep+(calcTernaryf(-1, 1, s.Stats.Weight < 5.0))*acceleration+bias,
-	)
-	maxStep = math.Min(
-		20,
-		maxStep+(calcTernaryf(1, -1, s.Stats.Weight < 5.0))*acceleration+bias,
-	)
+		// Calculate the next step
+		step := maxStep * (s.Stats.Weight / 10.0)
+		step += bias
 
-	// Calculate new position
-	s.lastStep = int(rand.Float64()*(maxStep-minStep) + minStep)
-	s.racePosition = int(math.Min(float64(s.racePosition+s.lastStep), 100))
+		// Set the new position
+		s.racePosition += math.Min(step, MaxSnailStep)
+		s.currentStamina--
+
+	} else {
+		s.currentStamina += 2.0 * bias
+	}
+
+	if bias > 0.5 {
+		s.currentStamina += 5 * (s.Stats.Stamina / 20.0)
+	}
+
+	// Make sure the snail doesn't go out of bounds
+	s.racePosition = math.Min(s.racePosition, float64(MaxRaceLength))
+}
+
+func (s Snail) renderPosition() string {
+	trail := int((s.racePosition/float64(MaxRaceLength))*20.0) - 1
+	line := strings.Repeat(".", int(math.Max(0.0, float64(trail))))
+	line += "🐌"
+
+	log.Printf("Snail: %s, pos: %02f, cst: %f, sp: %f, st: %f, wt: %f", s.Name, s.racePosition, s.currentStamina, s.Stats.Speed, s.Stats.Stamina, s.Stats.Weight)
+
+	return fmt.Sprintf("%-20s", line)
 }
 
 func CreateSnail(db *gorm.DB, owner User, levelType SnailStatLevel) (*Snail, error) {
@@ -128,12 +150,4 @@ func generateSnailName() string {
 
 func generateMoodBias(mood float64) float64 {
 	return rand.Float64() + mood
-}
-
-// calcTernary is a ternary operator for float64s
-func calcTernaryf(a, b float64, condition bool) float64 {
-	if condition {
-		return a
-	}
-	return b
 }

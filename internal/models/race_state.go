@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -21,6 +22,7 @@ const (
 	RaceOpenTimeout      = 10 * time.Second
 	RaceBettingTimeout   = 30 * time.Second
 	RaceNoBettingTimeout = 10 * time.Second
+	RaceStepInterval     = 1 * time.Second
 	RaceTimeout          = 10 * time.Minute
 
 	// Action Ids
@@ -42,6 +44,11 @@ type RaceBet struct {
 	SnailIndex    int
 }
 
+type RaceSnailPos struct {
+	Position int
+	Frame    int
+	Snail    *Snail
+}
 type Race struct {
 	Id        string
 	ChannelId string
@@ -55,8 +62,10 @@ type Race struct {
 	DontFill bool
 	OnlyOne  bool
 
-	Snails []*Snail
-	Bets   []RaceBet
+	Snails  []*Snail
+	Bets    []RaceBet
+	Odds    []float64
+	Winners []RaceSnailPos
 }
 
 func (r *Race) SetupNewRace(id string, channelId string, host *discordgo.User, endRace func()) {
@@ -87,7 +96,7 @@ func (r *Race) autoFillRace() {
 	}
 
 	for len(r.Snails) < 4 {
-		snail := CreateDummySnail(RandomSnail)
+		snail := CreateDummySnail(StartingSnail)
 		r.Snails = append(r.Snails, snail)
 	}
 }
@@ -138,19 +147,62 @@ func StartRace(s *discordgo.Session, race *Race) {
 		return
 	}
 
-	// Race Open Stage
+	// Open Stage
 	race.Render(s)
 	time.Sleep(RaceOpenTimeout)
 	race.Stage = RaceStageBetting
 
-	// Race Betting Stage
+	// Autofill the Race
+	if !race.DontFill {
+		race.autoFillRace()
+	}
+	race.generateOdds()
+
+	// Betting Stage
 	race.Render(s)
 	if race.NoBets {
 		time.Sleep(RaceNoBettingTimeout)
 	} else {
 		time.Sleep(RaceBettingTimeout)
 	}
-	race.Stage = RaceStageBetting
+	race.Stage = RaceStageRunning
+
+	// Race Stage
+	firstRace, raceAttempt := true, 0
+	for firstRace || (race.racePosTie() && race.OnlyOne && raceAttempt < 5) {
+		race.Render(s)
+		firstRace = false
+		raceAttempt++
+		race.Winners = make([]RaceSnailPos, 0)
+
+		// Reset the snails to start at the beginning
+		for _, snail := range race.Snails {
+			snail.NewRace()
+		}
+
+		// Race until 3 snails have finished (or all snails if there are less than 3)
+		snailsFinished, frame := 0, 0
+		requiredFinished := int(math.Min(float64(len(race.Snails)), 3.0))
+		for snailsFinished < requiredFinished {
+			snailsFinished = 0
+			for _, snail := range race.Snails {
+				snail.Step()
+				if snail.racePosition >= float64(MaxRaceLength) {
+					snailsFinished++
+					race.racePosAdd(snail, frame)
+				}
+			}
+			now := time.Now()
+			race.Render(s)
+			fmt.Printf("Duration: %s\n", time.Since(now))
+			frame++
+			log.Printf("[%d/%d] ---------- Frame: %d ----------\n", len(race.Winners), requiredFinished, frame)
+			time.Sleep(RaceStepInterval)
+		}
+	}
+
+	// Finished Stage
+	log.Printf("Race is finished with the winners: %+v\n", race.Winners)
 }
 
 func (r *Race) Render(s *discordgo.Session) {
@@ -226,13 +278,9 @@ func (r *Race) renderOpenRace(s *discordgo.Session) {
 
 func (r *Race) renderBetting(s *discordgo.Session) {
 
-	// Autofill the Race
-	if !r.DontFill {
-		r.autoFillRace()
-	}
-
 	if r.NoBets {
 		r.renderNoBetting(s)
+		return
 	}
 
 	// Build the Embed Message
@@ -243,15 +291,14 @@ func (r *Race) renderBetting(s *discordgo.Session) {
 		len(r.Snails),
 	)
 
-	odds := r.generateOdds()
 	select_options := make([]discordgo.SelectMenuOption, 0)
 
 	// Add the snails to the body as entrants `index - <oods> <snail_name>(<@owner_id>)`
 	for index, snail := range r.Snails {
 		if snail.Level == 0 {
-			body += fmt.Sprintf("%2d - `%.02f` %s\n", index, odds[index], snail.Name)
+			body += fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.Name)
 		} else {
-			body += fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, odds[index], snail.Name, snail.Owner.DiscordID)
+			body += fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, r.Odds[index], snail.Name, snail.Owner.DiscordID)
 		}
 
 		select_options = append(
@@ -292,18 +339,17 @@ func (r *Race) renderNoBetting(s *discordgo.Session) {
 	// Build the Embed Message
 	title := "Race: Ready to Race"
 	body := fmt.Sprintf(
-		"We are ready to race, here are the entrants:\n\nRace ID: `%s`\n\n**Entrants: (%d/12)**\n",
+		"We are ready to race `%s`, here are the entrants:\n\n**Entrants: (%d/12)**\n",
 		r.Id,
 		len(r.Snails),
 	)
 
 	// Add the snails to the body as entrants `index - <odds> <snail_name>(<@owner_id>)`
-	odds := r.generateOdds()
 	for index, snail := range r.Snails {
 		if snail.Level == 0 {
-			body += fmt.Sprintf("%2d - `%.02f` %s\n", index, odds[index], snail.Name)
+			body += fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.Name)
 		} else {
-			body += fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, odds[index], snail.Name, snail.Owner.DiscordID)
+			body += fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, r.Odds[index], snail.Name, snail.Owner.DiscordID)
 		}
 	}
 
@@ -317,26 +363,78 @@ func (r *Race) renderNoBetting(s *discordgo.Session) {
 			Color:       0x2ecc71,
 		},
 	}
+	edit.Components = []discordgo.MessageComponent{}
 
 	s.ChannelMessageEditComplex(edit)
 }
 
 func (r *Race) renderRunning(s *discordgo.Session) {
+	title := "Race: Ready to Race"
+	body := ""
 
+	entrants := fmt.Sprintf("**Entrants: (%d/12):**\n", len(r.Snails))
+
+	track := fmt.Sprintf("```\nRace ID: %s\n\n", r.Id)
+	track += "                          🏁\n"
+	track += "  |-----------------------|\n"
+
+	// Build snails
+	for index, snail := range r.Snails {
+		line := snail.renderPosition()
+
+		// Render the snail on the track
+		row := fmt.Sprintf("%2d| %s | %s\n", index, line, snail.Name)
+		if pos := r.racePosPosition(snail); pos > 0 {
+			row = fmt.Sprintf("%2d| %s %d %s\n", index, line, pos, snail.Name)
+		}
+		track += row
+
+		// Render the entrant in the list
+		row = fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.Name)
+		if snail.Level != 0 {
+			// Snail has an owner
+			row = fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, r.Odds[index], snail.Name, snail.Owner.DiscordID)
+		}
+		entrants += row
+	}
+	track += "  |-----------------------|\n```"
+
+	body += track + entrants
+
+	// Edit the message to reflect the current state of the race, in this
+	// sense it will mainly update the entrants
+	edit := discordgo.NewMessageEdit(r.ChannelId, r.Message.ID)
+	edit.Embeds = []*discordgo.MessageEmbed{
+		{
+			Title:       title,
+			Description: body,
+			Color:       0x2ecc71,
+		},
+	}
+	edit.Components = []discordgo.MessageComponent{}
+
+	s.ChannelMessageEditComplex(edit)
 }
 func (r *Race) renderFinished(s *discordgo.Session) {
 
 }
 
-func (r *Race) generateOdds() []float64 {
-	odds := make([]float64, len(r.Snails))
+// Uses the each snails stats, create the odds of the each snail winning. The
+// lower the number the more likely the snail is to win. The odds are based on
+// the normalized stats of the snail, with a modifier based on the snails win
+// history. The Odds will be used to calculate the payout for each bet.
+func (r *Race) generateOdds() {
+	r.Odds = make([]float64, len(r.Snails))
 
+	// Pre-calculate the sum of the speed, and stamina stats to normalize the
+	// stats for each snail later.
 	sum_speed, sum_stamina := 0.0, 0.0
 	for _, snail := range r.Snails {
 		sum_speed += snail.Stats.Speed
 		sum_stamina += snail.Stats.Stamina
 	}
 
+	// Generate for each snail
 	for index, snail := range r.Snails {
 		// Calculate modifier from normalized stats
 		norm_speed := snail.Stats.Speed / sum_speed
@@ -357,8 +455,67 @@ func (r *Race) generateOdds() []float64 {
 		if odd < 1.0 {
 			odd = 1.0
 		}
-		odds[index] = odd
+		r.Odds[index] = odd
+	}
+}
+
+// Checks if the snail is already in the winners list
+func (r Race) racePosContains(snail *Snail) bool {
+	for _, p := range r.Winners {
+		if p.Snail == snail {
+			return true
+		}
+	}
+	return false
+}
+
+func (r Race) racePosPosition(snail *Snail) int {
+	for _, p := range r.Winners {
+		if p.Snail == snail {
+			return p.Position
+		}
+	}
+	return 0
+}
+
+// When a snail crosses the line, add it to the winners list. If the snail is
+// already in the list, do nothing. If there is already a snail with the same
+// frame, then the snail is tied with the other snail.
+func (r *Race) racePosAdd(snail *Snail, frame int) {
+	if r.racePosContains(snail) {
+		return
 	}
 
-	return odds
+	pos := 1
+	for _, p := range r.Winners {
+		if p.Position >= pos {
+			pos = p.Position + 1
+		}
+
+		// Check for a possible tie
+		if p.Frame == frame {
+			pos = p.Position
+			break
+		}
+	}
+
+	// Add the snail to the winners list
+	r.Winners = append(r.Winners, RaceSnailPos{
+		Position: pos,
+		Snail:    snail,
+		Frame:    frame,
+	})
+}
+
+// Check the race for a tie, it doesn't matter how many are in the tie, just
+// that there is a tie.
+func (r Race) racePosTie() bool {
+	for _, a := range r.Winners {
+		for _, b := range r.Winners {
+			if a.Position == b.Position && a.Snail != b.Snail {
+				return true
+			}
+		}
+	}
+	return false
 }
