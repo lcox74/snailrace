@@ -1,11 +1,11 @@
 package models
 
 import (
-	"log"
-
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type State struct {
@@ -31,7 +31,7 @@ func (s *State) NewRace(session *discordgo.Session, channelId string, host *disc
 
 	// Create New Race
 	race := &Race{}
-	race.SetupNewRace(id, channelId, host, func() {
+	race.SetupNewRace(id, channelId, s.DB, host, func() {
 		delete(s.Races, id)
 		log.Printf("Race %s has come to a close", id)
 	})

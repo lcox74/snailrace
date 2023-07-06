@@ -1,6 +1,8 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+)
 
 type User struct {
 	gorm.Model
@@ -36,6 +38,26 @@ func (user *User) RemoveMoney(db *gorm.DB, amount uint64) error {
 
 func (user *User) AddMoney(db *gorm.DB, amount uint64) error {
 	user.Money += amount
+	result := db.Save(user)
+	return result.Error
+}
+func (user *User) AddXP(db *gorm.DB, amount uint64) error {
+	user.XP += amount
+	if user.XP >= user.Level*100 {
+		user.XP -= user.Level * 100
+		user.Level++
+	}
+
+	result := db.Save(user)
+	return result.Error
+}
+
+func (user *User) AddRace(db *gorm.DB, win bool) error {
+	user.Races++
+	if win {
+		user.Wins++
+	}
+
 	result := db.Save(user)
 	return result.Error
 }
