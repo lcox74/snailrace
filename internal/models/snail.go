@@ -39,7 +39,7 @@ type Snail struct {
 	Mood  float64    `json:"mood" gorm:"default:0"`
 	Stats SnailStats `json:"stats" gorm:"embedded"`
 
-	racePosition   int     `json:"-" gorm:"-"`
+	racePosition   float64 `json:"-" gorm:"-"`
 	currentStamina float64 `json:"-" gorm:"-"`
 }
 
@@ -64,7 +64,7 @@ func (s *Snail) Step() {
 		step += bias
 
 		// Set the new position
-		s.racePosition += int(math.Round(step))
+		s.racePosition += math.Min(step, MaxSnailStep)
 		s.currentStamina--
 
 	} else {
@@ -76,15 +76,15 @@ func (s *Snail) Step() {
 	}
 
 	// Make sure the snail doesn't go out of bounds
-	s.racePosition = int(math.Min(float64(s.racePosition), float64(MaxRaceLength)))
+	s.racePosition = math.Min(s.racePosition, float64(MaxRaceLength))
 }
 
 func (s Snail) renderPosition() string {
-	trail := int((float64(s.racePosition)/float64(MaxRaceLength))*20.0) - 1
+	trail := int((s.racePosition/float64(MaxRaceLength))*20.0) - 1
 	line := strings.Repeat(".", int(math.Max(0.0, float64(trail))))
 	line += "🐌"
 
-	log.Printf("Snail: %s, pos: %d, cst: %f, sp: %f, st: %f, wt: %f", s.Name, s.racePosition, s.currentStamina, s.Stats.Speed, s.Stats.Stamina, s.Stats.Weight)
+	log.Printf("Snail: %s, pos: %02f, cst: %f, sp: %f, st: %f, wt: %f", s.Name, s.racePosition, s.currentStamina, s.Stats.Speed, s.Stats.Stamina, s.Stats.Weight)
 
 	return fmt.Sprintf("%-20s", line)
 }

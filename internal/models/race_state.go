@@ -22,7 +22,7 @@ const (
 	RaceOpenTimeout      = 10 * time.Second
 	RaceBettingTimeout   = 30 * time.Second
 	RaceNoBettingTimeout = 10 * time.Second
-	RaceStepInterval     = 10 * time.Millisecond
+	RaceStepInterval     = 1 * time.Second
 	RaceTimeout          = 10 * time.Minute
 
 	// Action Ids
@@ -187,14 +187,17 @@ func StartRace(s *discordgo.Session, race *Race) {
 			snailsFinished = 0
 			for _, snail := range race.Snails {
 				snail.Step()
-				if snail.racePosition >= MaxRaceLength {
+				if snail.racePosition >= float64(MaxRaceLength) {
 					snailsFinished++
 					race.racePosAdd(snail, frame)
 				}
 			}
+			now := time.Now()
 			race.Render(s)
+			fmt.Printf("Duration: %s\n", time.Since(now))
 			frame++
 			log.Printf("[%d/%d] ---------- Frame: %d ----------\n", len(race.Winners), requiredFinished, frame)
+			time.Sleep(RaceStepInterval)
 		}
 	}
 
@@ -378,13 +381,21 @@ func (r *Race) renderRunning(s *discordgo.Session) {
 	// Build snails
 	for index, snail := range r.Snails {
 		line := snail.renderPosition()
-		track += fmt.Sprintf("%2d| %s | %s\n", index, line, snail.Name)
 
-		if snail.Level == 0 {
-			entrants += fmt.Sprintf("%2d - `%02f` %s\n", index, r.Odds[index], snail.Name)
-		} else {
-			entrants += fmt.Sprintf("%2d - `%02f` %s(<@%s>)\n", index, r.Odds[index], snail.Name, snail.Owner.DiscordID)
+		// Render the snail on the track
+		row := fmt.Sprintf("%2d| %s | %s\n", index, line, snail.Name)
+		if pos := r.racePosPosition(snail); pos > 0 {
+			row = fmt.Sprintf("%2d| %s %d %s\n", index, line, pos, snail.Name)
 		}
+		track += row
+
+		// Render the entrant in the list
+		row = fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.Name)
+		if snail.Level != 0 {
+			// Snail has an owner
+			row = fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, r.Odds[index], snail.Name, snail.Owner.DiscordID)
+		}
+		entrants += row
 	}
 	track += "  |-----------------------|\n```"
 
@@ -408,15 +419,22 @@ func (r *Race) renderFinished(s *discordgo.Session) {
 
 }
 
+// Uses the each snails stats, create the odds of the each snail winning. The
+// lower the number the more likely the snail is to win. The odds are based on
+// the normalized stats of the snail, with a modifier based on the snails win
+// history. The Odds will be used to calculate the payout for each bet.
 func (r *Race) generateOdds() {
 	r.Odds = make([]float64, len(r.Snails))
 
+	// Pre-calculate the sum of the speed, and stamina stats to normalize the
+	// stats for each snail later.
 	sum_speed, sum_stamina := 0.0, 0.0
 	for _, snail := range r.Snails {
 		sum_speed += snail.Stats.Speed
 		sum_stamina += snail.Stats.Stamina
 	}
 
+	// Generate for each snail
 	for index, snail := range r.Snails {
 		// Calculate modifier from normalized stats
 		norm_speed := snail.Stats.Speed / sum_speed
@@ -441,6 +459,7 @@ func (r *Race) generateOdds() {
 	}
 }
 
+// Checks if the snail is already in the winners list
 func (r Race) racePosContains(snail *Snail) bool {
 	for _, p := range r.Winners {
 		if p.Snail == snail {
@@ -450,6 +469,18 @@ func (r Race) racePosContains(snail *Snail) bool {
 	return false
 }
 
+func (r Race) racePosPosition(snail *Snail) int {
+	for _, p := range r.Winners {
+		if p.Snail == snail {
+			return p.Position
+		}
+	}
+	return 0
+}
+
+// When a snail crosses the line, add it to the winners list. If the snail is
+// already in the list, do nothing. If there is already a snail with the same
+// frame, then the snail is tied with the other snail.
 func (r *Race) racePosAdd(snail *Snail, frame int) {
 	if r.racePosContains(snail) {
 		return
@@ -461,12 +492,14 @@ func (r *Race) racePosAdd(snail *Snail, frame int) {
 			pos = p.Position + 1
 		}
 
+		// Check for a possible tie
 		if p.Frame == frame {
 			pos = p.Position
 			break
 		}
 	}
 
+	// Add the snail to the winners list
 	r.Winners = append(r.Winners, RaceSnailPos{
 		Position: pos,
 		Snail:    snail,
@@ -474,6 +507,8 @@ func (r *Race) racePosAdd(snail *Snail, frame int) {
 	})
 }
 
+// Check the race for a tie, it doesn't matter how many are in the tie, just
+// that there is a tie.
 func (r Race) racePosTie() bool {
 	for _, a := range r.Winners {
 		for _, b := range r.Winners {
