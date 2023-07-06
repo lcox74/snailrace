@@ -84,9 +84,14 @@ func (s Snail) renderPosition() string {
 	line := strings.Repeat(".", int(math.Max(0.0, float64(trail))))
 	line += "🐌"
 
-	log.Printf("Snail: %s, pos: %02f, cst: %f, sp: %f, st: %f, wt: %f", s.Name, s.racePosition, s.currentStamina, s.Stats.Speed, s.Stats.Stamina, s.Stats.Weight)
-
 	return fmt.Sprintf("%-20s", line)
+}
+
+func (s Snail) renderName() string {
+	if s.Level > 0 {
+		return fmt.Sprintf("%s (<@%s>)", s.Name, s.OwnerID)
+	}
+	return s.Name
 }
 
 func CreateSnail(db *gorm.DB, owner User, levelType SnailStatLevel) (*Snail, error) {
@@ -127,6 +132,27 @@ func SetActiveSnail(db *gorm.DB, owner User, snail Snail) error {
 
 	// Set the new snail to active
 	result := db.Model(&snail).Update("active", true)
+	return result.Error
+}
+
+func (snail *Snail) AddXP(db *gorm.DB, amount uint64) error {
+	snail.Exp += amount
+	if snail.Exp >= snail.Level*100 {
+		snail.Exp -= snail.Level * 100
+		snail.Level++
+	}
+
+	result := db.Save(snail)
+	return result.Error
+}
+
+func (snail *Snail) AddRace(db *gorm.DB, win bool) error {
+	snail.Races++
+	if win {
+		snail.Wins++
+	}
+
+	result := db.Save(snail)
 	return result.Error
 }
 

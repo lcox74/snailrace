@@ -7,6 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type RaceStage uint8
@@ -29,12 +30,20 @@ const (
 	RaceActionJoin      = "host_join"
 	RaceActionBet       = "host_bet"
 	RaceActionBetAmount = "host_bet_amout"
+
+	// Reward Constants
+	BaseMoney = 10
+	BaseXP    = 5
+	WinPos1XP = 15
+	WinPos2XP = 10
+	WinPos3XP = 5
 )
 
 var (
 	ErrInvalidSnail  = fmt.Errorf("invalid snail")
 	ErrRaceClosed    = fmt.Errorf("race is closed")
 	ErrAlreadyJoined = fmt.Errorf("snail already joined")
+	ErrNotEnough     = fmt.Errorf("not enough racers")
 	ErrBetsClosed    = fmt.Errorf("bets are closed")
 )
 
@@ -54,6 +63,7 @@ type Race struct {
 	ChannelId string
 	Stage     RaceStage
 	EndRace   func()
+	DB        *gorm.DB
 
 	Host    *discordgo.User
 	Message *discordgo.Message
@@ -68,13 +78,17 @@ type Race struct {
 	Winners []RaceSnailPos
 }
 
-func (r *Race) SetupNewRace(id string, channelId string, host *discordgo.User, endRace func()) {
+func (r *Race) SetupNewRace(id string, channelId string, db *gorm.DB, host *discordgo.User, endRace func()) {
 	r.Id = id
 	r.ChannelId = channelId
 	r.Host = host
 	r.EndRace = endRace
 	r.Stage = RaceStageOpen
 	r.Snails = make([]*Snail, 0)
+	r.Bets = make([]RaceBet, 0)
+	r.Odds = make([]float64, 0)
+	r.Winners = make([]RaceSnailPos, 0)
+	r.DB = db
 }
 
 // Flag setters
@@ -131,6 +145,10 @@ func (r *Race) PlaceBet(index int, amount int, userDiscordId string) error {
 		return ErrInvalidSnail
 	}
 
+	if len(r.Snails) < 2 {
+		return ErrNotEnough
+	}
+
 	r.Bets = append(r.Bets, RaceBet{
 		UserDiscordId: userDiscordId,
 		Amount:        amount,
@@ -140,10 +158,16 @@ func (r *Race) PlaceBet(index int, amount int, userDiscordId string) error {
 }
 
 func StartRace(s *discordgo.Session, race *Race) {
-	log.Printf("Starting a race %+v\n", *race)
+	defer race.EndRace()
+
+	raceStart := time.Now()
+	defer func() {
+		log.Printf("Race %s took %s", race.Id, time.Since(raceStart))
+	}()
+
+	log.Printf("Starting a race: %s \n", race.Id)
 	race.Stage = RaceStageOpen
 	if race.setupMessage(s) != nil {
-		race.EndRace()
 		return
 	}
 
@@ -192,17 +216,16 @@ func StartRace(s *discordgo.Session, race *Race) {
 					race.racePosAdd(snail, frame)
 				}
 			}
-			now := time.Now()
 			race.Render(s)
-			fmt.Printf("Duration: %s\n", time.Since(now))
 			frame++
-			log.Printf("[%d/%d] ---------- Frame: %d ----------\n", len(race.Winners), requiredFinished, frame)
 			time.Sleep(RaceStepInterval)
 		}
 	}
 
 	// Finished Stage
-	log.Printf("Race is finished with the winners: %+v\n", race.Winners)
+	race.Stage = RaceStageFinished
+	race.Payout(s)
+	race.Render(s)
 }
 
 func (r *Race) Render(s *discordgo.Session) {
@@ -249,7 +272,7 @@ func (r *Race) renderOpenRace(s *discordgo.Session) {
 
 	// Add the snails to the body as entrants `- <snail_name>(<@owner_id>)`
 	for _, snail := range r.Snails {
-		body += fmt.Sprintf("- %s(<@%s>)\n", snail.Name, snail.Owner.DiscordID)
+		body += fmt.Sprintf("- %s\n", snail.renderName())
 	}
 
 	// Edit the message to reflect the current state of the race, in this
@@ -295,12 +318,7 @@ func (r *Race) renderBetting(s *discordgo.Session) {
 
 	// Add the snails to the body as entrants `index - <oods> <snail_name>(<@owner_id>)`
 	for index, snail := range r.Snails {
-		if snail.Level == 0 {
-			body += fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.Name)
-		} else {
-			body += fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, r.Odds[index], snail.Name, snail.Owner.DiscordID)
-		}
-
+		body += fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.renderName())
 		select_options = append(
 			select_options,
 			discordgo.SelectMenuOption{
@@ -346,11 +364,7 @@ func (r *Race) renderNoBetting(s *discordgo.Session) {
 
 	// Add the snails to the body as entrants `index - <odds> <snail_name>(<@owner_id>)`
 	for index, snail := range r.Snails {
-		if snail.Level == 0 {
-			body += fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.Name)
-		} else {
-			body += fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, r.Odds[index], snail.Name, snail.Owner.DiscordID)
-		}
+		body += fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.renderName())
 	}
 
 	// Edit the message to reflect the current state of the race, in this
@@ -390,11 +404,7 @@ func (r *Race) renderRunning(s *discordgo.Session) {
 		track += row
 
 		// Render the entrant in the list
-		row = fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.Name)
-		if snail.Level != 0 {
-			// Snail has an owner
-			row = fmt.Sprintf("%2d - `%.02f` %s(<@%s>)\n", index, r.Odds[index], snail.Name, snail.Owner.DiscordID)
-		}
+		row = fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.renderName())
 		entrants += row
 	}
 	track += "  |-----------------------|\n```"
@@ -416,7 +426,123 @@ func (r *Race) renderRunning(s *discordgo.Session) {
 	s.ChannelMessageEditComplex(edit)
 }
 func (r *Race) renderFinished(s *discordgo.Session) {
+	title := "Race: Complete"
+	body := r.getWinnersStr() + "\n\n"
 
+	entrants := fmt.Sprintf("**Entrants: (%d/12):**\n", len(r.Snails))
+
+	track := fmt.Sprintf("```\nRace ID: %s\n\n", r.Id)
+	track += "                          🏁\n"
+	track += "  |-----------------------|\n"
+
+	// Build snails
+	for index, snail := range r.Snails {
+		line := snail.renderPosition()
+
+		// Render the snail on the track
+		row := fmt.Sprintf("%2d| %s | %s\n", index, line, snail.Name)
+		if pos := r.racePosPosition(snail); pos > 0 {
+			row = fmt.Sprintf("%2d| %s %d %s\n", index, line, pos, snail.Name)
+		}
+		track += row
+
+		// Render the entrant in the list
+		row = fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.renderName())
+		entrants += row
+	}
+	track += "  |-----------------------|\n```"
+
+	body += track + entrants
+
+	// Edit the message to reflect the current state of the race, in this
+	// sense it will mainly update the entrants
+	edit := discordgo.NewMessageEdit(r.ChannelId, r.Message.ID)
+	edit.Embeds = []*discordgo.MessageEmbed{
+		{
+			Title:       title,
+			Description: body,
+			Color:       0x2ecc71,
+		},
+	}
+	edit.Components = []discordgo.MessageComponent{}
+
+	s.ChannelMessageEditComplex(edit)
+
+}
+
+func (r Race) getWinnersStr() string {
+	winners := make([]*Snail, 0)
+	for _, racePos := range r.Winners {
+		if racePos.Position == 1 {
+			winners = append(winners, racePos.Snail)
+		}
+	}
+
+	switch len(winners) {
+	case 1:
+		return fmt.Sprintf("Wow congratulations %s for winning the race!", winners[0].renderName())
+	case 2:
+		return fmt.Sprintf("It's a Tie! Good job %s and %s!", winners[0].renderName(), winners[1].renderName())
+	case 3:
+		return fmt.Sprintf("It's a three way tie! Good job %s, %s, and %s!", winners[0].renderName(), winners[1].renderName(), winners[2].renderName())
+	}
+
+	winStr := "I don't believe it... "
+	for _, winner := range winners {
+		winStr += winner.renderName()
+	}
+	winStr += " have all won..."
+	return winStr
+}
+
+func (r *Race) Payout(s *discordgo.Session) {
+
+	// Give Snails Base XP
+	for _, snail := range r.Snails {
+		if snail.Level == 0 {
+			continue
+		}
+
+		switch r.racePosPosition(snail) {
+		case 1:
+			snail.AddXP(r.DB, uint64(BaseXP+(WinPos1XP*len(r.Snails))))
+			snail.Owner.AddXP(r.DB, uint64(BaseXP+(WinPos1XP*len(r.Snails))))
+			snail.Owner.AddMoney(r.DB, uint64(BaseMoney*len(r.Snails)))
+			snail.AddRace(r.DB, true)
+			snail.Owner.AddRace(r.DB, true)
+		case 2:
+			snail.AddXP(r.DB, uint64(BaseXP+(WinPos2XP*len(r.Snails))))
+			snail.Owner.AddXP(r.DB, uint64(BaseXP+(WinPos2XP*len(r.Snails))))
+			snail.AddRace(r.DB, false)
+			snail.Owner.AddRace(r.DB, false)
+		case 3:
+			snail.AddXP(r.DB, uint64(BaseXP+(WinPos3XP*len(r.Snails))))
+			snail.Owner.AddXP(r.DB, uint64(BaseXP+(WinPos3XP*len(r.Snails))))
+			snail.AddRace(r.DB, false)
+			snail.Owner.AddRace(r.DB, false)
+		default:
+			snail.AddXP(r.DB, uint64(BaseXP))
+			snail.Owner.AddXP(r.DB, uint64(BaseXP))
+			snail.AddRace(r.DB, false)
+			snail.Owner.AddRace(r.DB, false)
+		}
+	}
+
+	// Calculate the payout for each bet
+	for _, bet := range r.Bets {
+		if r.racePosPosition(r.Snails[bet.SnailIndex]) == 1 {
+			// Get the user who placed the bet
+			user, err := GetUserByDiscordID(r.DB, bet.UserDiscordId)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			// Calculate the payout
+			payout := uint64(float64(bet.Amount) * r.Odds[bet.SnailIndex])
+			user.AddMoney(r.DB, payout)
+		}
+	}
 }
 
 // Uses the each snails stats, create the odds of the each snail winning. The
