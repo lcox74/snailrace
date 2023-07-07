@@ -33,7 +33,7 @@ func (s *State) NewRace(session *discordgo.Session, channelId string, host *disc
 	race := &Race{}
 	race.SetupNewRace(id, channelId, s.DB, host, func() {
 		delete(s.Races, id)
-		log.Printf("Race %s has come to a close", id)
+		log.WithField("race", id).Infoln("Race is finished")
 	})
 	s.Races[id] = race
 

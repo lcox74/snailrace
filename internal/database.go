@@ -32,7 +32,7 @@ func MigrateSchemas(db *gorm.DB) error {
 	for _, schema := range schemas {
 		err := db.AutoMigrate(schema)
 		if err != nil {
-			log.Warnf("Failed migrating schema: %s", err)
+			log.WithError(err).Warnf("Failed migrating schema: %s", err)
 			return err
 		}
 	}

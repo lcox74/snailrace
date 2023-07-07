@@ -42,7 +42,7 @@ func RegisterCommand(state *models.State, s *discordgo.Session, command DiscordA
 			}
 
 			if i.ApplicationCommandData().Options[0].Name == decleration.Name {
-				log.Printf("%s(%s) used CMD[%s]\n", i.Member.User.Username, i.Member.User.ID, i.ApplicationCommandData().Options[0].Name)
+				log.WithField("cmd", i.ApplicationCommandData().Options[0].Name).Infof("User %s sent command", i.Member.User.Username)
 				command.AppHandler(state)(s, i)
 			}
 		case discordgo.InteractionMessageComponent:
@@ -50,12 +50,12 @@ func RegisterCommand(state *models.State, s *discordgo.Session, command DiscordA
 			breakDown := strings.Split(i.MessageComponentData().CustomID, ":")
 			if len(breakDown) == 0 {
 				if handler, ok := command.ActionHandler(state)[breakDown[0]]; ok {
-					log.Printf("%s(%s) used Action[%s]\n", i.Member.User.Username, i.Member.User.ID, breakDown[0])
+					log.WithField("interaction", breakDown[0]).Infof("User %s sent interaction", i.Member.User.Username)
 					handler(s, i)
 				}
 			} else {
 				if handler, ok := command.ActionHandler(state, breakDown[1:]...)[breakDown[0]]; ok {
-					log.Printf("%s(%s) used Action[%s]\n", i.Member.User.Username, i.Member.User.ID, breakDown[0])
+					log.WithField("interaction", breakDown[0]).Infof("User %s sent interaction", i.Member.User.Username)
 					handler(s, i)
 				}
 			}
@@ -64,12 +64,12 @@ func RegisterCommand(state *models.State, s *discordgo.Session, command DiscordA
 			breakDown := strings.Split(i.ModalSubmitData().CustomID, ":")
 			if len(breakDown) == 0 {
 				if handler, ok := command.ModalHandler(state)[breakDown[0]]; ok {
-					log.Printf("%s(%s) used Modal[%s]\n", i.Member.User.Username, i.Member.User.ID, breakDown[0])
+					log.WithField("modal", breakDown[0]).Infof("User %s sent modal response", i.Member.User.Username)
 					handler(s, i)
 				}
 			} else {
 				if handler, ok := command.ModalHandler(state, breakDown[1:]...)[breakDown[0]]; ok {
-					log.Printf("%s(%s) used Modal[%s]\n", i.Member.User.Username, i.Member.User.ID, breakDown[0])
+					log.WithField("modal", breakDown[0]).Infof("User %s sent modal response", i.Member.User.Username)
 					handler(s, i)
 				}
 			}

@@ -26,7 +26,7 @@ func SetupDiscord(state *models.State) *discordgo.Session {
 	// Create Discord Session
 	discord, err := discordgo.New("Bot " + os.Getenv(DiscordTokenEnv))
 	if err != nil {
-		log.Fatal("Failed creating Discord session:", err)
+		log.WithError(err).Fatal("Failed creating Discord session:", err)
 	}
 
 	// Regiser a handler for the ready event
@@ -35,19 +35,19 @@ func SetupDiscord(state *models.State) *discordgo.Session {
 		s.UpdateGameStatus(0, DiscordGameStatus)
 
 		// Log ready
-		log.Printf("Bot is ready! (User: %s)\n", event.User.Username)
+		log.Infof("Bot is ready! (User: %s)\n", event.User.Username)
 	})
 
 	// Open a websocket connection to Discord and begin listening.
 	err = discord.Open()
 	if err != nil {
-		log.Fatal("Failed opening connection to Discord:", err)
+		log.WithError(err).Fatal("Failed opening connection to Discord:", err)
 	}
 
 	// Register Commands
 	err = RegisterCommands(state, discord)
 	if err != nil {
-		log.Fatal("Failed registering commands:", err)
+		log.WithError(err).Fatal("Failed registering commands:", err)
 	}
 
 	return discord
@@ -74,7 +74,7 @@ func RegisterCommands(state *models.State, s *discordgo.Session) error {
 	for _, cmd := range cmds {
 		err := commands.RegisterCommand(state, s, cmd)
 		if err != nil {
-			log.Warnf("Failed registering command: %s", err)
+			log.WithError(err).Warnf("Failed registering command: %s", err)
 			return err
 		}
 

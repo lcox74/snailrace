@@ -5,8 +5,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/lcox74/snailrace/internal/models"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // CommandPing is a simple ping command, this is used as a basic test to see if
@@ -24,7 +22,6 @@ func (c *CommandPing) Decleration() *discordgo.ApplicationCommandOption {
 func (c *CommandPing) AppHandler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		response := fmt.Sprintf("Pong <@%s>!", i.Member.User.ID)
-		log.Printf("[CMD] Ping! -> %s\n", response)
 
 		// Respond to the interaction with a message
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
