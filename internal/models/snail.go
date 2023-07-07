@@ -95,6 +95,8 @@ func (s Snail) renderName() string {
 }
 
 func CreateSnail(db *gorm.DB, owner User, levelType SnailStatLevel) (*Snail, error) {
+	log.Debugf("CreateSnail(owner: %s, levelType: %v)", owner.DiscordID, levelType)
+
 	snail := &Snail{
 		Owner: owner,
 		Level: 1,
@@ -107,6 +109,8 @@ func CreateSnail(db *gorm.DB, owner User, levelType SnailStatLevel) (*Snail, err
 }
 
 func CreateDummySnail(levelType SnailStatLevel) *Snail {
+	log.Debugf("CreateDummySnail(levelType: %v)", levelType)
+
 	snail := &Snail{Level: 0}
 	snail.Stats.GenerateStats(levelType)
 	snail.Name = generateSnailName()
@@ -115,18 +119,24 @@ func CreateDummySnail(levelType SnailStatLevel) *Snail {
 }
 
 func GetAllSnails(db *gorm.DB, owner User) ([]Snail, error) {
+	log.Debugf("GetAllSnails(owner: %s)", owner.DiscordID)
+
 	snails := []Snail{}
 	result := db.Where("owner_id = ?", owner.DiscordID).Preload("Owner").Find(&snails)
 	return snails, result.Error
 }
 
 func GetActiveSnail(db *gorm.DB, owner User) (*Snail, error) {
+	log.Debugf("GetActiveSnail(owner: %s)", owner.DiscordID)
+
 	snail := &Snail{}
 	result := db.Where("owner_id = ? AND active = ?", owner.DiscordID, true).Preload("Owner").First(snail)
 	return snail, result.Error
 }
 
 func SetActiveSnail(db *gorm.DB, owner User, snail Snail) error {
+	log.Debugf("SetActiveSnail(owner: %s, snail: %s)", owner.DiscordID, snail.Name)
+
 	// Set all other snails to inactive
 	db.Model(&Snail{}).Where("owner_id = ?", owner.DiscordID).Update("active", false)
 
@@ -136,6 +146,8 @@ func SetActiveSnail(db *gorm.DB, owner User, snail Snail) error {
 }
 
 func (snail *Snail) AddXP(db *gorm.DB, amount uint64) error {
+	log.Debugf("GetActiveSnail(snail: %s, amount: %d)", snail.Name, amount)
+
 	snail.Exp += amount
 	if snail.Exp >= snail.Level*100 {
 		snail.Exp -= snail.Level * 100
@@ -147,6 +159,8 @@ func (snail *Snail) AddXP(db *gorm.DB, amount uint64) error {
 }
 
 func (snail *Snail) AddRace(db *gorm.DB, win bool) error {
+	log.Debugf("AddRace(snail: %s, win: %v)", snail.Name, win)
+
 	snail.Races++
 	if win {
 		snail.Wins++
@@ -159,12 +173,12 @@ func (snail *Snail) AddRace(db *gorm.DB, win bool) error {
 func generateSnailName() string {
 	nounsFile, err := os.ReadFile("./res/snail_noun.txt")
 	if err != nil {
-		log.Warnf("Error reading snail_noun.txt: %v", err)
+		log.WithError(err).Warnln("Error reading snail_noun.txt")
 		return "buggy-snail"
 	}
 	adjectivesFile, err := os.ReadFile("./res/snail_adj.txt")
 	if err != nil {
-		log.Warnf("Error reading snail_adj.txt: %v", err)
+		log.WithError(err).Warnln("Error reading snail_adj.txt")
 		return "buggy-snail"
 	}
 

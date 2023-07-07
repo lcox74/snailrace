@@ -18,26 +18,30 @@ func main() {
 	// Load .env file
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.WithError(err).Fatal("Error loading .env file")
+		return
 	}
 
 	// Bring up the database
 	db, err := internal.SetupDatabase()
 	if err != nil {
-		log.Fatal("Error setting up database")
+		log.WithError(err).Fatal("Error setting up database")
+		return
 	}
-	log.Printf("Database initialised and connected: %s\n", db.Name())
+	log.Infoln("Database initialised and connected.")
 
 	// Create State
 	state := models.NewState(db)
 
 	// Initiliase Discord
 	discord := internal.SetupDiscord(state)
-	log.Printf("Discord Bot connected as %s\n", discord.State.User.Username)
-
+	if discord == nil {
+		log.Fatal("Unable to setup Discord")
+		return
+	}
 
 	// Wait until CTRL-C or other term signal is received.
-	log.Println("Snail Manager is now running.  Press CTRL-C to exit.")
+	log.Infoln("Snail racer is now running.")
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c

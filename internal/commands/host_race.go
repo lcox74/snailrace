@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -39,12 +40,12 @@ func (c *CommandHostRace) Decleration() *discordgo.ApplicationCommandOption {
 
 func (c *CommandHostRace) AppHandler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		log.Printf("[CMD] Host!\n")
-
 		// Check if the user is initialised, if the user isn't initialised then
 		// we need to tell them to initialise their account.
 		user, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
 		if err != nil {
+			log.WithField("cmd", "/host").WithError(err).Infof("No record for user %s", i.Member.User.Username)
+
 			ResponseEmbedFail(s, i, true,
 				fmt.Sprintf("I'm sorry %s, but you arent initialised", i.Member.User.Username),
 				"You'll need to initialise your account with `/snailrace init` to use this command.",
@@ -56,6 +57,8 @@ func (c *CommandHostRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		// to the race
 		snail, err := models.GetActiveSnail(state.DB, *user)
 		if err != nil {
+			log.WithField("cmd", "/host").WithError(err).Warnf("Error getting active snail for %s", i.Member.User.Username)
+
 			ResponseEmbedFail(s, i, true,
 				fmt.Sprintf("I'm sorry %s, but we couldn't get your active snail", i.Member.User.Username),
 				"There has been an issue with the action you sent, please try again.",
@@ -95,12 +98,11 @@ func (c *CommandHostRace) AppHandler(state *models.State) func(s *discordgo.Sess
 func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		models.RaceActionJoin: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			log.Printf("[CMD] Host Join Interaction!\n")
-
 			// The Join Action acts as the command /snailrace join <race_id>
 			// If the caller doesn't supply the `race_id` then we need to
 			// through and error, theoretically this should nevery error
 			if len(options) != 1 {
+				log.WithField("interaction", models.RaceActionJoin).WithError(errors.New("invalid options")).Errorf("Not enough arguments/options from user %s", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true,
 					fmt.Sprintf("I'm sorry %s, but there has been an issue", i.Member.User.Username),
 					"There has been an issue with the action you sent, please try again.",
@@ -112,6 +114,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			// we need to tell them to initialise their account.
 			user, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
 			if err != nil {
+				log.WithField("interaction", models.RaceActionJoin).WithError(err).Infof("Error getting record for user %s", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true,
 					fmt.Sprintf("I'm sorry %s, but you arent initialised", i.Member.User.Username),
 					"You'll need to initialise your account with `/snailrace init` to use this command.",
@@ -122,6 +125,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			// We neet to get the user's active snail to add to the race
 			snail, err := models.GetActiveSnail(state.DB, *user)
 			if err != nil {
+				log.WithField("interaction", models.RaceActionJoin).WithError(err).Warnf("Error getting active snail for user %s", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true,
 					fmt.Sprintf("I'm sorry %s, but we couldn't get your active snail", i.Member.User.Username),
 					"There has been an issue with the action you sent, please try again.",
@@ -134,12 +138,14 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			raceId := options[0]
 			race, ok := state.Races[raceId]
 			if !ok {
+				log.WithField("interaction", models.RaceActionJoin).WithError(errors.New("no existing race")).Infof("The raceid %s is not active, requested by user %s", raceId, i.Member.User.Username)
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Race %s not avaliable", raceId), "There is currently no race with the ID you supplied.")
 				return
 			}
 
 			err = race.AddSnail(snail)
 			if err != nil {
+				log.WithField("interaction", models.RaceActionJoin).WithError(err).Infof("The user %s is already in the race", i.Member.User.Username)
 				ResponseEmbedInfo(s, i, true, fmt.Sprintf("You're already in the race %s", i.Member.User.Username), "You can't join the race twice, good luck with the race!")
 				return
 			}
@@ -149,9 +155,8 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			ResponseEmbedSuccess(s, i, true, fmt.Sprintf("You've joined the race #%s", raceId), "We've just got your snail lined up at the starting line, good luck!")
 		},
 		models.RaceActionBet: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			log.Printf("[CMD] Host Bet Interaction!\n")
 			if len(options) != 1 {
-				log.Errorf("Invalid number of options for bet amount: %d -> %s\n", len(options), options[0])
+				log.WithField("interaction", models.RaceActionBet).WithError(errors.New("invalid options")).Errorf("Not enough arguments/options from user %s", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true,
 					fmt.Sprintf("I'm sorry %s, but there has been an issue", i.Member.User.Username),
 					"There has been an issue with the action you sent, please try again.",
@@ -163,6 +168,8 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			// we need to tell them to initialise their account.
 			_, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
 			if err != nil {
+				log.WithField("interaction", models.RaceActionBet).WithError(err).Infof("No record for user %s", i.Member.User.Username)
+
 				ResponseEmbedFail(s, i, true,
 					fmt.Sprintf("I'm sorry %s, but you arent initialised", i.Member.User.Username),
 					"You'll need to initialise your account with `/snailrace init` to use this command.",
@@ -175,6 +182,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			raceId := options[0]
 			race, ok := state.Races[raceId]
 			if !ok {
+				log.WithField("interaction", models.RaceActionJoin).WithError(errors.New("no existing race")).Infof("The raceid %s is not active, requested by user %s", raceId, i.Member.User.Username)
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Race %s not avaliable", raceId), "There is currently no race with the ID you supplied.")
 				return
 			}
@@ -185,6 +193,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			snailIndex, _ := strconv.Atoi(data.Values[0])
 			snail := race.GetSnail(snailIndex)
 			if snail == nil {
+				log.WithField("interaction", models.RaceActionBet).WithError(err).Infof("User %s betting invalid snail", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Invalid snail to bet for race %s", raceId), "There is currently no snail with the ID you supplied.")
 				return
 			}
@@ -226,6 +235,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 		},
 		models.RaceActionBetAmount: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if len(options) != 3 {
+				log.WithField("interaction", models.RaceActionBetAmount).WithError(errors.New("invalid options")).Errorf("Not enough arguments/options from user %s", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true,
 					fmt.Sprintf("I'm sorry %s, but there has been an issue", i.Member.User.Username),
 					"There has been an issue with the action you sent, please try again.",
@@ -237,6 +247,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			// we need to tell them to initialise their account.
 			user, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
 			if err != nil {
+				log.WithField("interaction", models.RaceActionBetAmount).WithError(err).Infof("No record for user %s", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true,
 					fmt.Sprintf("I'm sorry %s, but you arent initialised", i.Member.User.Username),
 					"You'll need to initialise your account with `/snailrace init` to use this command.",
@@ -249,6 +260,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			raceId := options[0]
 			race, ok := state.Races[raceId]
 			if !ok {
+				log.WithField("interaction", models.RaceActionBetAmount).WithError(errors.New("no existing race")).Warnf("The raceid %s is not active, requested by user %s", raceId, i.Member.User.Username)
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Race %s not avaliable", raceId), "There is currently no race with the ID you supplied.")
 				return
 			}
@@ -258,6 +270,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			snailIndex, _ := strconv.Atoi(options[1])
 			snail := race.GetSnail(snailIndex)
 			if snail == nil {
+				log.WithField("interaction", models.RaceActionBetAmount).WithError(err).Warnf("User %s betting invalid snail", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Invalid snail to bet for race %s", raceId), "There is currently no snail with the ID you supplied.")
 				return
 			}
@@ -265,7 +278,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			// Check if the user has enough money to make the bet
 			amount, _ := strconv.Atoi(options[2])
 			if int(user.Money) < amount {
-				log.Warnf("Player %s tried to bet %d g but only has %d g", i.Member.User.Username, amount, user.Money)
+				log.WithField("interaction", models.RaceActionBetAmount).WithError(err).Infof("User %s doesn't have the funds to place a bet", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s but you can't afford the bet", i.Member.User.Username), fmt.Sprintf("You don't have enough money to place that bet, you only have %d g.", user.Money))
 				return
 			}
@@ -273,12 +286,15 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 			// Place the bet and remove the money from the user
 			switch race.PlaceBet(snailIndex, amount, user.DiscordID) {
 			case models.ErrInvalidSnail:
+				log.WithField("interaction", models.RaceActionBetAmount).WithError(models.ErrInvalidSnail).Warnf("User %s failed to place bet on snail", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s that snail doesn't exist", i.Member.User.Username), "The snail you have selected to bet is invalid, the snail isn't in the race.")
 				return
 			case models.ErrBetsClosed:
+				log.WithField("interaction", models.RaceActionBetAmount).WithError(models.ErrBetsClosed).Warnf("User %s failed to place bet on snail as bets are closed", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s Bets are Closed", i.Member.User.Username), "Bet's are closed so we can't accept your bet.")
 				return
 			case models.ErrNotEnough:
+				log.WithField("interaction", models.RaceActionBetAmount).WithError(models.ErrNotEnough).Warnf("User %s failed to place bet on snail as there aren't enough racers in the race", i.Member.User.Username)
 				ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s Not Enough Racers", i.Member.User.Username), "We need at least 2 racers to enable bets.")
 				return
 			}

@@ -28,8 +28,6 @@ func (c *CommandJoinRace) Decleration() *discordgo.ApplicationCommandOption {
 
 func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		log.Printf("[CMD] Join!\n")
-
 		raceId := ""
 
 		// The Join Action acts as the command /snailrace join <race_id>
@@ -46,6 +44,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		// Check if there is a raceId supplied, if there isn't then we need to
 		// tell the user that they need to supply a raceId
 		if raceId == "" {
+			log.WithField("cmd", "/join").Infoln("No RaceId supplied")
 			ResponseEmbedFail(s, i, true,
 				"There is no RaceId supplied",
 				"Please try again by supplying a race RaceId.",
@@ -56,6 +55,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		// we need to tell them to initialise their account.
 		user, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
 		if err != nil {
+			log.WithField("cmd", "/join").WithError(err).Infof("User %s is not initialised", i.Member.User.Username)
 			ResponseEmbedFail(s, i, true,
 				fmt.Sprintf("I'm sorry %s, but you arent initialised", i.Member.User.Username),
 				"You'll need to initialise your account with `/snailrace init` to use this command.",
@@ -66,6 +66,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		// We neet to get the user's active snail to add to the race
 		snail, err := models.GetActiveSnail(state.DB, *user)
 		if err != nil {
+			log.WithField("cmd", "/join").WithError(err).Infof("User %s has no active snail", i.Member.User.Username)
 			ResponseEmbedFail(s, i, true,
 				fmt.Sprintf("I'm sorry %s, but we couldn't get your active snail", i.Member.User.Username),
 				"There has been an issue with the action you sent, please try again.",
@@ -77,6 +78,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		// RaceId then warn the user.
 		race, ok := state.Races[raceId]
 		if !ok {
+			log.WithField("cmd", "/join").Infof("No race with the supplied raceId: %s", raceId)
 			ResponseEmbedFail(s, i, true, fmt.Sprintf("Race %s not avaliable", raceId), "There is currently no race with the ID you supplied.")
 			return
 		}
@@ -84,9 +86,11 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		// Add the snail to the race and
 		switch race.AddSnail(snail) {
 		case models.ErrAlreadyJoined:
+			log.WithField("cmd", "/join").Infof("User %s already in race", i.Member.User.Username)
 			ResponseEmbedInfo(s, i, true, fmt.Sprintf("You're already in the race %s", i.Member.User.Username), "You can't join the race twice, good luck with the race!")
 			return
 		case models.ErrRaceClosed:
+			log.WithField("cmd", "/join").Infoln("Race is closed, can't join race")
 			ResponseEmbedInfo(s, i, true, fmt.Sprintf("That race is closed %s", i.Member.User.Username), "The race you have just tried to join is currently closed.")
 			return
 		}

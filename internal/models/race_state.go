@@ -162,10 +162,10 @@ func StartRace(s *discordgo.Session, race *Race) {
 
 	raceStart := time.Now()
 	defer func() {
-		log.Printf("Race %s took %s", race.Id, time.Since(raceStart))
+		log.WithField("race", race.Id).Infof("Race took %s", time.Since(raceStart))
 	}()
 
-	log.Printf("Starting a race: %s \n", race.Id)
+	log.WithField("race", race.Id).Infoln("Starting a race")
 	race.Stage = RaceStageOpen
 	if race.setupMessage(s) != nil {
 		return
@@ -253,7 +253,7 @@ func (r *Race) setupMessage(s *discordgo.Session) (err error) {
 	})
 
 	if err != nil {
-		log.Warnf("failed to send race setup message: %s", err)
+		log.WithField("race", r.Id).WithError(err).Warnln("failed to send race setup message")
 	}
 
 	return err
@@ -534,7 +534,7 @@ func (r *Race) Payout(s *discordgo.Session) {
 			// Get the user who placed the bet
 			user, err := GetUserByDiscordID(r.DB, bet.UserDiscordId)
 			if err != nil {
-				log.Println(err)
+				log.WithField("race", r.Id).WithError(err).Warnln("Failed to get user for payout")
 				continue
 			}
 

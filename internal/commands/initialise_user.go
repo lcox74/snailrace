@@ -24,12 +24,11 @@ func (c *CommandInitialise) Decleration() *discordgo.ApplicationCommandOption {
 
 func (c *CommandInitialise) AppHandler(state *models.State) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		log.Printf("[CMD] Init!\n")
 
 		// Check if the user already has an account
 		user, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
 		if err != nil && err != gorm.ErrRecordNotFound {
-			log.Warnf("[CMD] Error getting user: %s\n", err)
+			log.WithField("cmd", "/init").WithError(err).Warnf("Error getting user %s", i.Member.User.Username)
 			c.respondWithFail(s, i)
 			return
 		}
@@ -37,13 +36,13 @@ func (c *CommandInitialise) AppHandler(state *models.State) func(s *discordgo.Se
 		// Check if the user doesn't exist, if it doesn't exist we want to
 		// create it and then create a snail for them.
 		if err == gorm.ErrRecordNotFound {
-			log.Printf("[CMD] Creating record for user %s(%s)\n", i.Member.User.Username, i.Member.User.ID)
+			log.WithField("cmd", "/init").Infof("Creating record for user %s", i.Member.User.Username)
 			c.respondCreateNew(s, i, state.DB)
 			return
 		}
 
 		// User already exists, lets just remind them of their snail
-		log.Printf("[CMD] Existing user %s(%s) is trying to init again\n", i.Member.User.Username, i.Member.User.ID)
+		log.WithField("cmd", "/init").Infof("Existing record for user %s", i.Member.User.Username)
 		c.respondExisting(s, i, state.DB, user)
 	}
 }
@@ -60,7 +59,7 @@ func (c CommandInitialise) respondCreateNew(s *discordgo.Session, i *discordgo.I
 	// Create a new user
 	user, err := models.CreateUser(db, i.Member.User.ID)
 	if err != nil {
-		log.Warnf("[CMD] Error creating user: %s\n", err)
+		log.WithField("cmd", "/init").WithError(err).Warnf("Error creating user %s", i.Member.User.Username)
 		c.respondWithFail(s, i)
 		return
 	}
@@ -68,7 +67,7 @@ func (c CommandInitialise) respondCreateNew(s *discordgo.Session, i *discordgo.I
 	// Create a new snail
 	snail, err := models.CreateSnail(db, *user, models.StartingSnail)
 	if err != nil {
-		log.Warnf("[CMD] Error creating snail: %s\n", err)
+		log.WithField("cmd", "/init").WithError(err).Warnf("Error creating snail for user %s", i.Member.User.Username)
 		c.respondWithFail(s, i)
 		return
 	}
@@ -85,7 +84,7 @@ func (c CommandInitialise) respondExisting(s *discordgo.Session, i *discordgo.In
 	// Get the user's active snail
 	snail, err := models.GetActiveSnail(db, *user)
 	if err != nil && err != gorm.ErrRecordNotFound {
-		log.Warnf("[CMD] Error getting active snail: %s\n", err)
+		log.WithField("cmd", "/init").WithError(err).Warnf("Error getting active snail for user %s", i.Member.User.Username)
 		c.respondWithFail(s, i)
 		return
 	}
@@ -94,7 +93,7 @@ func (c CommandInitialise) respondExisting(s *discordgo.Session, i *discordgo.In
 	if err != gorm.ErrRecordNotFound {
 		snails, err := models.GetAllSnails(db, *user)
 		if err != nil && err != gorm.ErrRecordNotFound {
-			log.Warnf("[CMD] Error getting all snails: %s\n", err)
+			log.WithField("cmd", "/init").WithError(err).Warnf("Error getting all snails for user %s", i.Member.User.Username)
 			c.respondWithFail(s, i)
 			return
 		}
@@ -104,7 +103,7 @@ func (c CommandInitialise) respondExisting(s *discordgo.Session, i *discordgo.In
 			// We create a new snail for the user
 			snail, err := models.CreateSnail(db, *user, models.StartingSnail)
 			if err != nil {
-				log.Warnf("[CMD] Error creating snail: %s\n", err)
+				log.WithField("cmd", "/init").WithError(err).Warnf("Error creating snail for user %s", i.Member.User.Username)
 				c.respondWithFail(s, i)
 				return
 			}
