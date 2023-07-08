@@ -11,7 +11,7 @@ import (
 
 func SetupDatabase() (*gorm.DB, error) {
 	// Open Database Connection, or Create Database if it doesn't exist
-	db, err := gorm.Open(sqlite.Open("snailrace.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("db/snailrace.db"), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}

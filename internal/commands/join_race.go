@@ -44,7 +44,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		// Check if there is a raceId supplied, if there isn't then we need to
 		// tell the user that they need to supply a raceId
 		if raceId == "" {
-			log.WithField("cmd", "/join").Infoln("No RaceId supplied")
+			log.WithField("cmd", "/join").Info("No RaceId supplied")
 			ResponseEmbedFail(s, i, true,
 				"There is no RaceId supplied",
 				"Please try again by supplying a race RaceId.",
@@ -90,7 +90,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 			ResponseEmbedInfo(s, i, true, fmt.Sprintf("You're already in the race %s", i.Member.User.Username), "You can't join the race twice, good luck with the race!")
 			return
 		case models.ErrRaceClosed:
-			log.WithField("cmd", "/join").Infoln("Race is closed, can't join race")
+			log.WithField("cmd", "/join").Info("Race is closed, can't join race")
 			ResponseEmbedInfo(s, i, true, fmt.Sprintf("That race is closed %s", i.Member.User.Username), "The race you have just tried to join is currently closed.")
 			return
 		}

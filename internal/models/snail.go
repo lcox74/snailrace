@@ -171,12 +171,12 @@ func (snail *Snail) AddRace(db *gorm.DB, win bool) error {
 func generateSnailName() string {
 	nounsFile, err := os.ReadFile("./res/snail_noun.txt")
 	if err != nil {
-		log.WithError(err).Warnln("Error reading snail_noun.txt")
+		log.WithError(err).Warn("Error reading snail_noun.txt")
 		return "buggy-snail"
 	}
 	adjectivesFile, err := os.ReadFile("./res/snail_adj.txt")
 	if err != nil {
-		log.WithError(err).Warnln("Error reading snail_adj.txt")
+		log.WithError(err).Warn("Error reading snail_adj.txt")
 		return "buggy-snail"
 	}
 

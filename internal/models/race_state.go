@@ -164,7 +164,7 @@ func StartRace(s *discordgo.Session, race *Race) {
 		log.WithField("race", race.Id).Infof("Race took %s", time.Since(raceStart))
 	}()
 
-	log.WithField("race", race.Id).Infoln("Starting a race")
+	log.WithField("race", race.Id).Info("Starting a race")
 	race.Stage = RaceStageOpen
 	if race.setupMessage(s) != nil {
 		return
@@ -188,7 +188,7 @@ func StartRace(s *discordgo.Session, race *Race) {
 			"speed":    snail.Stats.Speed,
 			"stamina":  snail.Stats.Stamina,
 			"recovery": snail.Stats.Recovery,
-		}).Debugln("Entrant stats")
+		}).Debug("Entrant stats")
 	}
 
 	// Betting Stage
@@ -263,7 +263,7 @@ func (r *Race) setupMessage(s *discordgo.Session) (err error) {
 	})
 
 	if err != nil {
-		log.WithField("race", r.Id).WithError(err).Warnln("failed to send race setup message")
+		log.WithField("race", r.Id).WithError(err).Warn("failed to send race setup message")
 	}
 
 	return err
@@ -544,7 +544,7 @@ func (r *Race) Payout(s *discordgo.Session) {
 			// Get the user who placed the bet
 			user, err := GetUserByDiscordID(r.DB, bet.UserDiscordId)
 			if err != nil {
-				log.WithField("race", r.Id).WithError(err).Warnln("Failed to get user for payout")
+				log.WithField("race", r.Id).WithError(err).Warn("Failed to get user for payout")
 				continue
 			}
 

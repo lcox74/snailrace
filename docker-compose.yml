@@ -1,0 +1,10 @@
+version: '3.9'
+
+services:
+  snailrace:
+    container_name: snailrace
+    build:
+      dockerfile: Dockerfile
+    network_mode: "host"
+    volumes:
+      - ./db/:/bin/db/
