@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -214,9 +213,10 @@ func StartRace(s *discordgo.Session, race *Race) {
 			snail.NewRace()
 		}
 
-		// Race until 3 snails have finished (or all snails if there are less than 3)
 		snailsFinished, frame := 0, 0
-		requiredFinished := int(math.Min(float64(len(race.Snails)), 3.0))
+
+		// Race until all snails have finished
+		requiredFinished := len(race.Snails)
 		for snailsFinished < requiredFinished {
 			snailsFinished = 0
 			for _, snail := range race.Snails {

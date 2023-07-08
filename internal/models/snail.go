@@ -50,7 +50,7 @@ func (s *Snail) NewRace() {
 
 // Step calculates the next step for the snail, based on the snail's stats and
 // mood. This is still in testing stages and will probably be changed depending
-// on how the game feels. TODO: Test and Change when needed
+// on how the game feels.
 func (s *Snail) Step() {
 	// Generate Random Bias
 	bias := generateMoodBias(s.Mood)
@@ -61,11 +61,13 @@ func (s *Snail) Step() {
 	if s.currentStamina > 0.0 {
 		if bias >= (1.0 - maxStepPotential) {
 			s.racePosition += MaxSnailStep
+			s.currentStamina -= rand.Float64() * 2.0
 		} else {
 			s.racePosition += float64(rand.Intn(int(MaxSnailStep)))
+			s.currentStamina -= rand.Float64()
 		}
 
-		s.currentStamina--
+		s.racePosition -= rand.Float64()
 	} else {
 		s.currentStamina += s.Stats.Recovery / 10.0
 	}
