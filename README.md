@@ -75,13 +75,13 @@ and personality traits. The snail object tracks the following:
 - `current owner`
 - `ranking` based on movement stats,
 - `mood` (ranging from `sad`, `happy` and `focused`).
-- `personality` (either `Hasty`, `Lax`, `Quirky`, `Jolly`, `Quiet`)
 
 One key aspect of each snail is its `Step Size Interval`, which is calculated 
-based on its max `speed`, `stamina`, and `weight` which are all within the range 
-of `0 to 10`. During each race step, the snail calculates how far it can move 
-using a formula that takes into account its speed, stamina, weight, and mood, as 
-well as its previous step size and a randomly generated bias value.
+based on its max `speed`, `stamina`, and `recovery` which are all within the 
+range of `0 to 20`. During each race step, the snail calculates how far it can
+move using a formula that takes into account its `speed`, `stamina`, `recovery`, 
+and `mood`, as well as its previous step size and a randomly generated bias 
+value.
 
 ## Achievements
 
@@ -102,6 +102,24 @@ can be found [here](./docs/draft_commands.md).
 - `ping`:
     Sends the user a `Pong @<user>!` message. This is only for testing.
 
+- `init`:
+    Initialises your account with a snail and user record. This is required to
+    run any other command.
+
+- `host`:
+    Starts the race cycle, there are the following flags to customise the race:
+
+  - `no-bets` Which removes betting from a race
+  - `only-one` The race will replay up to 5 times or until the race doesn't 
+    finish in a tie.
+  - `dont-fill` If there are less than 4 racers, dont fill with randoms.
+
+- `join`:
+    Joins a specific race using a `race_id`. This is if you don't want to use 
+    the race join buttons.
+
+- `bet`:
+    Place a bet, if you have the funds, on a specific snail in a specific race.
 
 [UQCS Discord Bot]: https://github.com/UQComputingSociety/uqcsbot-discord
 [Discord Dev Doc]: https://discord.com/developers/docs/getting-started
