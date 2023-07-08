@@ -102,6 +102,24 @@ can be found [here](./docs/draft_commands.md).
 - `ping`:
     Sends the user a `Pong @<user>!` message. This is only for testing.
 
+- `init`:
+    Initialises your account with a snail and user record. This is required to
+    run any other command.
+
+- `host`:
+    Starts the race cycle, there are the following flags to customise the race:
+
+  - `no-bets` Which removes betting from a race
+  - `only-one` The race will replay up to 5 times or until the race doesn't 
+    finish in a tie.
+  - `dont-fill` If there are less than 4 racers, dont fill with randoms.
+
+- `join`:
+    Joins a specific race using a `race_id`. This is if you don't want to use 
+    the race join buttons.
+
+- `bet`:
+    Place a bet, if you have the funds, on a specific snail in a specific race.
 
 [UQCS Discord Bot]: https://github.com/UQComputingSociety/uqcsbot-discord
 [Discord Dev Doc]: https://discord.com/developers/docs/getting-started
