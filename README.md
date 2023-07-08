@@ -75,13 +75,13 @@ and personality traits. The snail object tracks the following:
 - `current owner`
 - `ranking` based on movement stats,
 - `mood` (ranging from `sad`, `happy` and `focused`).
-- `personality` (either `Hasty`, `Lax`, `Quirky`, `Jolly`, `Quiet`)
 
 One key aspect of each snail is its `Step Size Interval`, which is calculated 
-based on its max `speed`, `stamina`, and `weight` which are all within the range 
-of `0 to 10`. During each race step, the snail calculates how far it can move 
-using a formula that takes into account its speed, stamina, weight, and mood, as 
-well as its previous step size and a randomly generated bias value.
+based on its max `speed`, `stamina`, and `recovery` which are all within the 
+range of `0 to 20`. During each race step, the snail calculates how far it can
+move using a formula that takes into account its `speed`, `stamina`, `recovery`, 
+and `mood`, as well as its previous step size and a randomly generated bias 
+value.
 
 ## Achievements
 
