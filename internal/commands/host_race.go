@@ -206,7 +206,7 @@ func (c *CommandHostRace) ActionHandler(state *models.State, options ...string) 
 						{
 							Title:       "Looks like you want to make a bet",
 							Color:       0x2ecc71,
-							Description: fmt.Sprintf("So you want to make a bet on %s. Well how much? Enter the amount as a number.", snail.Name),
+							Description: fmt.Sprintf("So you want to make a bet on %s. Well select one of the following predetermined amounts, or use the following command for a custom amount: \n```\n/snailrace bet race_id: %s snail_index: %d amount: \n```\n", snail.Name, raceId, snailIndex),
 						},
 					},
 					Components: []discordgo.MessageComponent{

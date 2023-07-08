@@ -182,6 +182,16 @@ func StartRace(s *discordgo.Session, race *Race) {
 	}
 	race.generateOdds()
 
+	for _, snail := range race.Snails {
+		log.WithFields(log.Fields{
+			"race":     race.Id,
+			"snail":    snail.Name,
+			"speed":    snail.Stats.Speed,
+			"stamina":  snail.Stats.Stamina,
+			"recovery": snail.Stats.Recovery,
+		}).Debugln("Entrant stats")
+	}
+
 	// Betting Stage
 	race.Render(s)
 	if race.NoBets {
@@ -309,7 +319,7 @@ func (r *Race) renderBetting(s *discordgo.Session) {
 	// Build the Embed Message
 	title := "Race: Bets are Open"
 	body := fmt.Sprintf(
-		"Bets are now open to everyone, do you feel lucky? Here are the entrants:\n\nRace ID: `%s`\n\n**Entrants: (%d/12)**\n",
+		"Bets are now open to everyone, do you feel lucky? To place a bet you can select the snail via the drop down. Here are the entrants:\n\nRace ID: `%s`\n\n**Entrants: (%d/12)**\n",
 		r.Id,
 		len(r.Snails),
 	)

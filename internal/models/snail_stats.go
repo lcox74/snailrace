@@ -7,9 +7,9 @@ import (
 )
 
 type SnailStats struct {
-	Speed   float64 `json:"speed"`
-	Stamina float64 `json:"stamina"`
-	Weight  float64 `json:"strength"`
+	Speed    float64 `json:"speed"`
+	Stamina  float64 `json:"stamina"`
+	Recovery float64 `json:"recovery"`
 }
 
 type SnailStatLevel uint8
@@ -24,10 +24,10 @@ const (
 
 func (s SnailStats) RenderStatBlock() string {
 	return fmt.Sprintf(
-		"%-9s%s\n%-9s%s\n%-9s%s\n",
-		"Speed", renderStat(s.Speed),
-		"Stamina", renderStat(s.Stamina),
-		"Strength", renderStat(s.Weight),
+		"%-9s%s %.02f\n%-9s%s %.02f\n%-9s%s %.02f\n",
+		"Speed", renderStat(s.Speed), s.Speed,
+		"Stamina", renderStat(s.Stamina), s.Stamina,
+		"Recovery", renderStat(s.Recovery), s.Recovery,
 	)
 }
 
@@ -50,14 +50,14 @@ func (s *SnailStats) GenerateStats(level SnailStatLevel) {
 func (s *SnailStats) generateStartingStats() {
 	s.Speed = randFloat64(1, 5)
 	s.Stamina = randFloat64(1, 5)
-	s.Weight = randFloat64(1, 5)
+	s.Recovery = randFloat64(1, 5)
 }
 
 // Amateur Snail Stats are randomly generated between 5 and 10 for each stat
 func (s *SnailStats) generateAmateurStats() {
 	s.Speed = randFloat64(5, 10)
 	s.Stamina = randFloat64(5, 10)
-	s.Weight = randFloat64(5, 10)
+	s.Recovery = randFloat64(5, 10)
 }
 
 // Professional Snail Stats are randomly generated between 10 and 15 for each
@@ -65,21 +65,21 @@ func (s *SnailStats) generateAmateurStats() {
 func (s *SnailStats) generateProfessionalStats() {
 	s.Speed = randFloat64(10, 15)
 	s.Stamina = randFloat64(10, 15)
-	s.Weight = randFloat64(10, 15)
+	s.Recovery = randFloat64(10, 15)
 }
 
 // Expert Snail Stats are randomly generated between 15 and 20 for each stat
 func (s *SnailStats) generateExpertStats() {
 	s.Speed = randFloat64(15, 20)
 	s.Stamina = randFloat64(15, 20)
-	s.Weight = randFloat64(15, 20)
+	s.Recovery = randFloat64(15, 20)
 }
 
 // Random Snail Stats are randomly generated between 1 and 20 for each stat
 func (s *SnailStats) generateRandomStats() {
 	s.Speed = randFloat64(1, 20)
 	s.Stamina = randFloat64(1, 20)
-	s.Weight = randFloat64(1, 20)
+	s.Recovery = randFloat64(1, 20)
 }
 
 func randFloat64(min, max float64) float64 {

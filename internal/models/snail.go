@@ -55,28 +55,24 @@ func (s *Snail) Step() {
 	// Generate Random Bias
 	bias := generateMoodBias(s.Mood)
 
-	if s.currentStamina > 0 {
-		// Calculate max step the snail can take
-		maxStep := s.Stats.Speed * (s.currentStamina / s.Stats.Stamina)
+	// Calculate max next step
+	maxStepPotential := (s.Stats.Speed / 20.0 * MaxSnailStep) // ?
 
-		// Calculate the next step
-		step := maxStep * (s.Stats.Weight / 10.0)
-		step += bias
+	if s.currentStamina > 0.0 {
+		if bias >= (1.0 - maxStepPotential) {
+			s.racePosition += MaxSnailStep
+		} else {
+			s.racePosition += float64(rand.Intn(int(MaxSnailStep)))
+		}
 
-		// Set the new position
-		s.racePosition += math.Min(step, MaxSnailStep)
 		s.currentStamina--
-
 	} else {
-		s.currentStamina += 2.0 * bias
-	}
-
-	if bias > 0.5 {
-		s.currentStamina += 5 * (s.Stats.Stamina / 20.0)
+		s.currentStamina += s.Stats.Recovery / 10.0
 	}
 
 	// Make sure the snail doesn't go out of bounds
 	s.racePosition = math.Min(s.racePosition, float64(MaxRaceLength))
+	s.currentStamina = math.Max(0.0, s.currentStamina)
 }
 
 func (s Snail) renderPosition() string {
