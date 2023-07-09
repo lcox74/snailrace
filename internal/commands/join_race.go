@@ -93,6 +93,11 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 			log.WithField("cmd", "/join").Info("Race is closed, can't join race")
 			ResponseEmbedInfo(s, i, true, fmt.Sprintf("That race is closed %s", i.Member.User.Username), "The race you have just tried to join is currently closed.")
 			return
+		case models.ErrRaceFull:
+			log.WithField("cmd", "/join").Info("Race is full, can't join race")
+			ResponseEmbedInfo(s, i, true, fmt.Sprintf("That race is full %s", i.Member.User.Username), "The race you have just tried to join is currently full. MAX 10 Snails.")
+			return
+
 		}
 
 		race.Render(s)
