@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -41,6 +42,7 @@ const (
 var (
 	ErrInvalidSnail  = fmt.Errorf("invalid snail")
 	ErrRaceClosed    = fmt.Errorf("race is closed")
+	ErrRaceFull      = fmt.Errorf("race is full")
 	ErrAlreadyJoined = fmt.Errorf("snail already joined")
 	ErrNotEnough     = fmt.Errorf("not enough racers")
 	ErrBetsClosed    = fmt.Errorf("bets are closed")
@@ -124,6 +126,11 @@ func (r *Race) AddSnail(snail *Snail) error {
 			return ErrAlreadyJoined
 		}
 	}
+
+	if len(r.Snails) >= 10 {
+		return ErrRaceFull
+	}
+
 	r.Snails = append(r.Snails, snail)
 	return nil
 }
@@ -220,6 +227,14 @@ func StartRace(s *discordgo.Session, race *Race) {
 		for snailsFinished < requiredFinished {
 			snailsFinished = 0
 			for _, snail := range race.Snails {
+
+				// Check if snail is already finished
+				if snail.racePosition >= float64(MaxRaceLength) {
+					snailsFinished++
+					continue
+				}
+
+				// Step snail forward
 				snail.Step()
 				if snail.racePosition >= float64(MaxRaceLength) {
 					snailsFinished++
@@ -233,6 +248,7 @@ func StartRace(s *discordgo.Session, race *Race) {
 	}
 
 	// Finished Stage
+	race.sortWinners()
 	race.Stage = RaceStageFinished
 	race.Payout(s)
 	race.Render(s)
@@ -273,7 +289,7 @@ func (r *Race) renderOpenRace(s *discordgo.Session) {
 	// Build the Embed Message
 	title := "Race: Open"
 	body := fmt.Sprintf(
-		"A new race has been hosted by %s\n\nRace ID: `%s`\n\nTo join via command, enter the following:\n```\n/snailrace join race_id: %s\n```\n**Entrants: (%d/12)**\n",
+		"A new race has been hosted by %s\n\nRace ID: `%s`\n\nTo join via command, enter the following:\n```\n/snailrace join race_id: %s\n```\n**Entrants: (%d/10)**\n",
 		r.Host.Username,
 		r.Id,
 		r.Id,
@@ -282,7 +298,7 @@ func (r *Race) renderOpenRace(s *discordgo.Session) {
 
 	// Add the snails to the body as entrants `- <snail_name>(<@owner_id>)`
 	for _, snail := range r.Snails {
-		body += fmt.Sprintf("- %s\n", snail.renderName())
+		body += fmt.Sprintf("- %s\n", snail.renderName(false))
 	}
 
 	// Edit the message to reflect the current state of the race, in this
@@ -319,7 +335,7 @@ func (r *Race) renderBetting(s *discordgo.Session) {
 	// Build the Embed Message
 	title := "Race: Bets are Open"
 	body := fmt.Sprintf(
-		"Bets are now open to everyone, do you feel lucky? To place a bet you can select the snail via the drop down. Here are the entrants:\n\nRace ID: `%s`\n\n**Entrants: (%d/12)**\n",
+		"Bets are now open to everyone, do you feel lucky? To place a bet you can select the snail via the drop down. Here are the entrants:\n\nRace ID: `%s`\n\n**Entrants: (%d/10)**\n",
 		r.Id,
 		len(r.Snails),
 	)
@@ -328,7 +344,7 @@ func (r *Race) renderBetting(s *discordgo.Session) {
 
 	// Add the snails to the body as entrants `index - <oods> <snail_name>(<@owner_id>)`
 	for index, snail := range r.Snails {
-		body += fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.renderName())
+		body += fmt.Sprintf("`[%d]: %.02f` %s\n", index, r.Odds[index], snail.renderName(false))
 		select_options = append(
 			select_options,
 			discordgo.SelectMenuOption{
@@ -374,7 +390,7 @@ func (r *Race) renderNoBetting(s *discordgo.Session) {
 
 	// Add the snails to the body as entrants `index - <odds> <snail_name>(<@owner_id>)`
 	for index, snail := range r.Snails {
-		body += fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.renderName())
+		body += fmt.Sprintf("`[%d]: %.02f` %s\n", index, r.Odds[index], snail.renderName(false))
 	}
 
 	// Edit the message to reflect the current state of the race, in this
@@ -393,10 +409,10 @@ func (r *Race) renderNoBetting(s *discordgo.Session) {
 }
 
 func (r *Race) renderRunning(s *discordgo.Session) {
-	title := "Race: Ready to Race"
+	title := "Race: Racing"
 	body := ""
 
-	entrants := fmt.Sprintf("**Entrants: (%d/12):**\n", len(r.Snails))
+	entrants := fmt.Sprintf("**Entrants: (%d/10):**\n", len(r.Snails))
 
 	track := fmt.Sprintf("```\nRace ID: %s\n\n", r.Id)
 	track += "                          🏁\n"
@@ -407,17 +423,17 @@ func (r *Race) renderRunning(s *discordgo.Session) {
 		line := snail.renderPosition()
 
 		// Render the snail on the track
-		row := fmt.Sprintf("%2d| %s | %s\n", index, line, snail.Name)
+		row := fmt.Sprintf("%2d| %s | \n", index, line)
 		if pos := r.racePosPosition(snail); pos > 0 {
-			row = fmt.Sprintf("%2d| %s %d %s\n", index, line, pos, snail.Name)
+			row = fmt.Sprintf("%2d| %s %d\n", index, line, pos)
 		}
 		track += row
 
 		// Render the entrant in the list
-		row = fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.renderName())
+		row = fmt.Sprintf("`[%d]: %.02f` %s\n", index, r.Odds[index], snail.renderName(false))
 		entrants += row
 	}
-	track += "  |-----------------------|\n```"
+	track += "  |-----------------------|\n\n```\n"
 
 	body += track + entrants
 
@@ -439,7 +455,7 @@ func (r *Race) renderFinished(s *discordgo.Session) {
 	title := "Race: Complete"
 	body := r.getWinnersStr() + "\n\n"
 
-	entrants := fmt.Sprintf("**Entrants: (%d/12):**\n", len(r.Snails))
+	entrants := fmt.Sprintf("**Entrants: (%d/10):**\n", len(r.Snails))
 
 	track := fmt.Sprintf("```\nRace ID: %s\n\n", r.Id)
 	track += "                          🏁\n"
@@ -450,17 +466,31 @@ func (r *Race) renderFinished(s *discordgo.Session) {
 		line := snail.renderPosition()
 
 		// Render the snail on the track
-		row := fmt.Sprintf("%2d| %s | %s\n", index, line, snail.Name)
+		row := fmt.Sprintf("%2d| %s |\n", index, line)
 		if pos := r.racePosPosition(snail); pos > 0 {
-			row = fmt.Sprintf("%2d| %s %d %s\n", index, line, pos, snail.Name)
+			row = fmt.Sprintf("%2d| %s %d\n", index, line, pos)
 		}
 		track += row
 
 		// Render the entrant in the list
-		row = fmt.Sprintf("%2d - `%.02f` %s\n", index, r.Odds[index], snail.renderName())
+		row = fmt.Sprintf("`[%d]: %.02f` %s\n", index, r.Odds[index], snail.renderName(false))
 		entrants += row
 	}
-	track += "  |-----------------------|\n```"
+	track += "  |-----------------------|\n\n"
+
+	// Render the results
+	track += "Results:\n"
+	for _, racePos := range r.Winners {
+		switch racePos.Position {
+		case 1:
+			track += fmt.Sprintf("🥇 %s\n", racePos.Snail.renderName(true))
+		case 2:
+			track += fmt.Sprintf("🥈 %s\n", racePos.Snail.renderName(true))
+		case 3:
+			track += fmt.Sprintf("🥉 %s\n", racePos.Snail.renderName(true))
+		}
+	}
+	track += "```\n"
 
 	body += track + entrants
 
@@ -490,16 +520,16 @@ func (r Race) getWinnersStr() string {
 
 	switch len(winners) {
 	case 1:
-		return fmt.Sprintf("Wow congratulations %s for winning the race!", winners[0].renderName())
+		return fmt.Sprintf("Wow congratulations %s for winning the race!", winners[0].renderName(false))
 	case 2:
-		return fmt.Sprintf("It's a Tie! Good job %s and %s!", winners[0].renderName(), winners[1].renderName())
+		return fmt.Sprintf("It's a Tie! Good job %s and %s!", winners[0].renderName(false), winners[1].renderName(false))
 	case 3:
-		return fmt.Sprintf("It's a three way tie! Good job %s, %s, and %s!", winners[0].renderName(), winners[1].renderName(), winners[2].renderName())
+		return fmt.Sprintf("It's a three way tie! Good job %s, %s, and %s!", winners[0].renderName(false), winners[1].renderName(false), winners[2].renderName(false))
 	}
 
 	winStr := "I don't believe it... "
 	for _, winner := range winners {
-		winStr += winner.renderName()
+		winStr += winner.renderName(false)
 	}
 	winStr += " have all won..."
 	return winStr
@@ -654,4 +684,10 @@ func (r Race) racePosTie() bool {
 		}
 	}
 	return false
+}
+
+func (r *Race) sortWinners() {
+	sort.Slice(r.Winners, func(i, j int) bool {
+		return r.Winners[i].Position < r.Winners[j].Position
+	})
 }

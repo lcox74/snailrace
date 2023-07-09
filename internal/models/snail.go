@@ -85,8 +85,8 @@ func (s Snail) renderPosition() string {
 	return fmt.Sprintf("%-20s", line)
 }
 
-func (s Snail) renderName() string {
-	if s.Level > 0 {
+func (s Snail) renderName(codeBlock bool) string {
+	if s.Level > 0 && !codeBlock {
 		return fmt.Sprintf("%s (<@%s>)", s.Name, s.OwnerID)
 	}
 	return s.Name
