@@ -5,6 +5,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/lcox74/snailrace/internal/models"
+	"github.com/lcox74/snailrace/pkg/styles"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -26,16 +27,13 @@ func (c *WalletCommand) AppHandler(state *models.State) func(s *discordgo.Sessio
 		user, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
 		if err != nil {
 			log.WithField("cmd", "/wallet").WithError(err).Infof("User %s is not initialised", i.Member.User.Username)
-			ResponseEmbedFail(s, i, true,
-				fmt.Sprintf("I'm sorry %s, but you arent initialised", i.Member.User.Username),
-				"You'll need to initialise your account with `/snailrace init` to use this command.",
-			)
+
+			styles.RespondInitialiseErr(s, i.Interaction, i.Member.Mention())
 			return
 		}
 
 		// Display the users wallet
-		ResponseEmbedSuccess(s, i, true, "Wallet", fmt.Sprintf("💰 %dg", user.Money))
-
+		styles.RespondOk(s, i.Interaction, true, "Wallet", fmt.Sprintf("💰 %dg", user.Money), nil)
 	}
 }
 

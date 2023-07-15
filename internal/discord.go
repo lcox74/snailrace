@@ -56,7 +56,6 @@ func SetupDiscord(state *models.State) *discordgo.Session {
 func RegisterCommands(state *models.State, s *discordgo.Session) error {
 	// Commands to register
 	cmds := []commands.DiscordAppCommand{
-		&commands.CommandPing{},
 		&commands.CommandInitialise{},
 		&commands.CommandHostRace{},
 		&commands.CommandJoinRace{},

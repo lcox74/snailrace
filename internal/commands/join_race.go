@@ -5,6 +5,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/lcox74/snailrace/internal/models"
+	"github.com/lcox74/snailrace/pkg/styles"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -45,10 +46,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		// tell the user that they need to supply a raceId
 		if raceId == "" {
 			log.WithField("cmd", "/join").Info("No RaceId supplied")
-			ResponseEmbedFail(s, i, true,
-				"There is no RaceId supplied",
-				"Please try again by supplying a race RaceId.",
-			)
+			styles.ResponseInvalidRaceErr(s, i.Interaction, i.Member.Mention())
 		}
 
 		// Check if the user is initialised, if the user isn't initialised then
@@ -56,10 +54,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		user, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
 		if err != nil {
 			log.WithField("cmd", "/join").WithError(err).Infof("User %s is not initialised", i.Member.User.Username)
-			ResponseEmbedFail(s, i, true,
-				fmt.Sprintf("I'm sorry %s, but you arent initialised", i.Member.User.Username),
-				"You'll need to initialise your account with `/snailrace init` to use this command.",
-			)
+			styles.RespondInitialiseErr(s, i.Interaction, i.Member.Mention())
 			return
 		}
 
@@ -67,10 +62,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		snail, err := models.GetActiveSnail(state.DB, *user)
 		if err != nil {
 			log.WithField("cmd", "/join").WithError(err).Infof("User %s has no active snail", i.Member.User.Username)
-			ResponseEmbedFail(s, i, true,
-				fmt.Sprintf("I'm sorry %s, but we couldn't get your active snail", i.Member.User.Username),
-				"There has been an issue with the action you sent, please try again.",
-			)
+			styles.ResponseNoActiveSnailErr(s, i.Interaction, i.Member.Mention())
 			return
 		}
 

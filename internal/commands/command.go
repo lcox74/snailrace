@@ -5,6 +5,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/lcox74/snailrace/internal/models"
+	"github.com/lcox74/snailrace/pkg/styles"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -34,6 +35,12 @@ func RegisterCommand(state *models.State, s *discordgo.Session, command DiscordA
 
 	// Register a handler for the messageCreate events
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
+		// Check if the interaction is a DM
+		if i.Member == nil {
+			styles.RespondDmErr(s, i.Interaction)
+			return
+		}
 
 		switch i.Type {
 		case discordgo.InteractionApplicationCommand:
