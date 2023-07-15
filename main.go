@@ -28,7 +28,7 @@ func main() {
 		log.WithError(err).Fatal("Error setting up database")
 		return
 	}
-	log.Infoln("Database initialised and connected.")
+	log.Info("Database initialised and connected.")
 
 	// Create State
 	state := models.NewState(db)
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	// Wait until CTRL-C or other term signal is received.
-	log.Infoln("Snail racer is now running.")
+	log.Info("Snail racer is now running.")
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
