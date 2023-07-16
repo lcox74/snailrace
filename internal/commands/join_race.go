@@ -46,7 +46,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		// tell the user that they need to supply a raceId
 		if raceId == "" {
 			log.WithField("cmd", "/join").Info("No RaceId supplied")
-			styles.ResponseInvalidRaceErr(s, i.Interaction, i.Member.Mention())
+			styles.ErrInvalidRace(s, i.Interaction, i.Member.Mention())
 		}
 
 		// Check if the user is initialised, if the user isn't initialised then
@@ -54,7 +54,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		user, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
 		if err != nil {
 			log.WithField("cmd", "/join").WithError(err).Infof("User %s is not initialised", i.Member.User.Username)
-			styles.RespondInitialiseErr(s, i.Interaction, i.Member.Mention())
+			styles.ErrInitialise(s, i.Interaction, i.Member.Mention())
 			return
 		}
 
@@ -62,7 +62,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		snail, err := models.GetActiveSnail(state.DB, *user)
 		if err != nil {
 			log.WithField("cmd", "/join").WithError(err).Infof("User %s has no active snail", i.Member.User.Username)
-			styles.ResponseNoActiveSnailErr(s, i.Interaction, i.Member.Mention())
+			styles.ErrNoActiveSnail(s, i.Interaction, i.Member.Mention())
 			return
 		}
 
@@ -71,7 +71,7 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		race, ok := state.Races[raceId]
 		if !ok {
 			log.WithField("cmd", "/join").Infof("No race with the supplied raceId: %s", raceId)
-			ResponseEmbedFail(s, i, true, fmt.Sprintf("Race %s not avaliable", raceId), "There is currently no race with the ID you supplied.")
+			styles.ErrRaceNotExist(s, i.Interaction)
 			return
 		}
 
@@ -79,21 +79,24 @@ func (c *CommandJoinRace) AppHandler(state *models.State) func(s *discordgo.Sess
 		switch race.AddSnail(snail) {
 		case models.ErrAlreadyJoined:
 			log.WithField("cmd", "/join").Infof("User %s already in race", i.Member.User.Username)
-			ResponseEmbedInfo(s, i, true, fmt.Sprintf("You're already in the race %s", i.Member.User.Username), "You can't join the race twice, good luck with the race!")
+			styles.ErrAlreadyInRace(s, i.Interaction)
 			return
 		case models.ErrRaceClosed:
 			log.WithField("cmd", "/join").Info("Race is closed, can't join race")
-			ResponseEmbedInfo(s, i, true, fmt.Sprintf("That race is closed %s", i.Member.User.Username), "The race you have just tried to join is currently closed.")
+			styles.ErrRaceClosed(s, i.Interaction)
 			return
 		case models.ErrRaceFull:
 			log.WithField("cmd", "/join").Info("Race is full, can't join race")
-			ResponseEmbedInfo(s, i, true, fmt.Sprintf("That race is full %s", i.Member.User.Username), "The race you have just tried to join is currently full. MAX 10 Snails.")
+			styles.ErrRaceFull(s, i.Interaction)
 			return
-
 		}
 
 		race.Render(s)
-		ResponseEmbedSuccess(s, i, true, fmt.Sprintf("You've joined the race #%s", raceId), "We've just got your snail lined up at the starting line, good luck!")
+		styles.RespondOk(s, i.Interaction, true,
+			"You've joined the race",
+			fmt.Sprintf("We've just got your snail lined up at the starting line for race `#%s`, good luck!", raceId),
+			nil,
+		)
 	}
 }
 

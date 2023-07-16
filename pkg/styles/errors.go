@@ -30,23 +30,53 @@ func SendErr(session *discordgo.Session, channelId string, msg string) {
 //       Standard Errs
 // =============================
 
-func RespondDmErr(session *discordgo.Session, interaction *discordgo.Interaction) {
+func ErrDm(session *discordgo.Session, interaction *discordgo.Interaction) {
 	RespondErr(session, interaction, false,
 		"I'm sorry, but we don't support DMs. Please use this command in a server.",
 	)
 }
-func RespondInitialiseErr(session *discordgo.Session, interaction *discordgo.Interaction, userMention string) {
+func ErrInitialise(session *discordgo.Session, interaction *discordgo.Interaction, userMention string) {
 	RespondErr(session, interaction, true,
 		fmt.Sprintf("I'm sorry %s, but you arent initialised. You'll need to initialise your account with `/snailrace init` to use this command.", userMention),
 	)
 }
-func ResponseInvalidRaceErr(session *discordgo.Session, interaction *discordgo.Interaction, userMention string) {
+func ErrInvalidRace(session *discordgo.Session, interaction *discordgo.Interaction, userMention string) {
 	RespondErr(session, interaction, true,
 		fmt.Sprintf("I'm sorry %s, the race id you've supplied is not an active race.", userMention),
 	)
 }
-func ResponseNoActiveSnailErr(session *discordgo.Session, interaction *discordgo.Interaction, userMention string) {
+func ErrNoActiveSnail(session *discordgo.Session, interaction *discordgo.Interaction, userMention string) {
 	RespondErr(session, interaction, true,
 		fmt.Sprintf("I'm sorry %s, but you don't have an active snail set on your account.", userMention),
+	)
+}
+func ErrAlreadyInRace(session *discordgo.Session, interaction *discordgo.Interaction) {
+	RespondErr(session, interaction, true,
+		"You can't join the race twice, good luck with the race!",
+	)
+}
+func ErrRaceNotExist(session *discordgo.Session, interaction *discordgo.Interaction) {
+	RespondErr(session, interaction, true,
+		"There is currently no race with the ID you supplied.",
+	)
+}
+func ErrRaceClosed(session *discordgo.Session, interaction *discordgo.Interaction) {
+	RespondErr(session, interaction, true,
+		"The race you have just tried to join is currently closed.",
+	)
+}
+func ErrRaceFull(session *discordgo.Session, interaction *discordgo.Interaction) {
+	RespondErr(session, interaction, true,
+		"The race you have just tried to join is currently full. **MAX 10 Snails**.",
+	)
+}
+func ErrInvalidSnailBet(session *discordgo.Session, interaction *discordgo.Interaction) {
+	RespondErr(session, interaction, true,
+		"There is currently no snail with the ID you supplied.",
+	)
+}
+func ErrCantAfford(session *discordgo.Session, interaction *discordgo.Interaction) {
+	RespondErr(session, interaction, true,
+		"You don't have a enough money to afford that action.",
 	)
 }

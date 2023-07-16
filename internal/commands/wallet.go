@@ -28,7 +28,7 @@ func (c *WalletCommand) AppHandler(state *models.State) func(s *discordgo.Sessio
 		if err != nil {
 			log.WithField("cmd", "/wallet").WithError(err).Infof("User %s is not initialised", i.Member.User.Username)
 
-			styles.RespondInitialiseErr(s, i.Interaction, i.Member.Mention())
+			styles.ErrInitialise(s, i.Interaction, i.Member.Mention())
 			return
 		}
 

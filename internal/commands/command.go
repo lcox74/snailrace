@@ -38,7 +38,7 @@ func RegisterCommand(state *models.State, s *discordgo.Session, command DiscordA
 
 		// Check if the interaction is a DM
 		if i.Member == nil {
-			styles.RespondDmErr(s, i.Interaction)
+			styles.ErrDm(s, i.Interaction)
 			return
 		}
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/lcox74/snailrace/internal/models"
+	"github.com/lcox74/snailrace/pkg/styles"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -46,10 +47,7 @@ func (c *BetCommand) AppHandler(state *models.State) func(s *discordgo.Session, 
 		user, err := models.GetUserByDiscordID(state.DB, i.Member.User.ID)
 		if err != nil {
 			log.WithField("cmd", "/bet").WithError(err).Infof("User %s is not initialised", i.Member.User.Username)
-			ResponseEmbedFail(s, i, true,
-				fmt.Sprintf("I'm sorry %s, but you arent initialised", i.Member.User.Username),
-				"You'll need to initialise your account with `/snailrace init` to use this command.",
-			)
+			styles.ErrInitialise(s, i.Interaction, i.Member.Mention())
 			return
 		}
 
@@ -73,7 +71,7 @@ func (c *BetCommand) AppHandler(state *models.State) func(s *discordgo.Session, 
 		race, ok := state.Races[raceId]
 		if !ok {
 			log.WithField("cmd", "/bet").WithError(errors.New("race not active")).Infof("User %s tying to bet on a inactive race", i.Member.User.Username)
-			ResponseEmbedFail(s, i, true, fmt.Sprintf("Race %s not avaliable", raceId), "There is currently no race with the ID you supplied.")
+			styles.ErrInvalidRace(s, i.Interaction, i.Member.Mention())
 			return
 		}
 
@@ -82,14 +80,14 @@ func (c *BetCommand) AppHandler(state *models.State) func(s *discordgo.Session, 
 		snail := race.GetSnail(snailIndex)
 		if snail == nil {
 			log.WithField("cmd", "/bet").WithError(errors.New("invalid snail")).Infof("User %s tying to bet invalid snail", i.Member.User.Username)
-			ResponseEmbedFail(s, i, true, fmt.Sprintf("Invalid snail to bet for race %s", raceId), "There is currently no snail with the ID you supplied.")
+			styles.ErrInvalidSnailBet(s, i.Interaction)
 			return
 		}
 
 		// Check if the user has enough money to make the bet
 		if int(user.Money) < amount {
 			log.WithField("cmd", "/bet").WithError(errors.New("not enough funds")).Infof("User %s doesn't have the funds to place bet", i.Member.User.Username)
-			ResponseEmbedFail(s, i, true, fmt.Sprintf("Sorry %s but you can't afford the bet", i.Member.User.Username), fmt.Sprintf("You don't have enough money to place that bet, you only have %d g.", user.Money))
+			styles.ErrCantAfford(s, i.Interaction)
 			return
 		}
 
