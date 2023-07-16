@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"time"
 
@@ -592,36 +593,16 @@ func (r *Race) Payout(s *discordgo.Session) {
 func (r *Race) generateOdds() {
 	r.Odds = make([]float64, len(r.Snails))
 
-	// Pre-calculate the sum of the speed, and stamina stats to normalize the
-	// stats for each snail later.
-	sum_speed, sum_stamina := 0.0, 0.0
+	// Pre-calculate the sum of winrates
+	sum_winrate := 0.0
 	for _, snail := range r.Snails {
-		sum_speed += snail.Stats.Speed
-		sum_stamina += snail.Stats.Stamina
+		sum_winrate += float64(snail.Wins) / math.Max(float64(snail.Races), 1.0)
 	}
 
 	// Generate for each snail
 	for index, snail := range r.Snails {
-		// Calculate modifier from normalized stats
-		norm_speed := snail.Stats.Speed / sum_speed
-		norm_stamina := snail.Stats.Stamina / sum_stamina
-		modifier := 1.0 - (norm_speed + norm_stamina)
-
-		// Check the snail's win history
-		win_rate := 1.0
-		if snail.Wins > 0 {
-			win_rate = 1.0 - (float64(snail.Wins) / float64(snail.Races))
-			if win_rate == 0.0 {
-				win_rate = 1.0
-			}
-		}
-
-		// Limit the odd
-		odd := 10.0 * modifier * win_rate
-		if odd < 1.0 {
-			odd = 1.0
-		}
-		r.Odds[index] = odd
+		wr := float64(snail.Wins) / math.Max(float64(snail.Races), 1.0)
+		r.Odds[index] = 1.0 / (wr / sum_winrate)
 	}
 }
 
