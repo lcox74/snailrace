@@ -146,6 +146,9 @@ func SetActiveSnail(db *gorm.DB, owner User, snail Snail) error {
 func (snail *Snail) AddXP(db *gorm.DB, amount uint64) error {
 	log.Debugf("GetActiveSnail(snail: %s, amount: %d)", snail.Name, amount)
 
+	// Fetch the updated snail data
+	db.Where("id = ?", snail.ID).First(snail)
+
 	snail.Exp += amount
 	if snail.Exp >= snail.Level*100 {
 		snail.Exp -= snail.Level * 100
@@ -158,6 +161,9 @@ func (snail *Snail) AddXP(db *gorm.DB, amount uint64) error {
 
 func (snail *Snail) AddRace(db *gorm.DB, win bool) error {
 	log.Debugf("AddRace(snail: %s, win: %v)", snail.Name, win)
+
+	// Fetch the updated snail data
+	db.Where("id = ?", snail.ID).First(snail)
 
 	snail.Races++
 	if win {
