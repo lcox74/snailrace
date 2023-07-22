@@ -3,6 +3,9 @@ package commands
 import (
 	"fmt"
 
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/lcox74/snailrace/internal/models"
 	log "github.com/sirupsen/logrus"
@@ -34,7 +37,8 @@ func (c *WalletCommand) AppHandler(state *models.State) func(s *discordgo.Sessio
 		}
 
 		// Display the users wallet
-		ResponseEmbedSuccess(s, i, true, "Wallet", fmt.Sprintf("💰 %dg", user.Money))
+		p := message.NewPrinter(language.English)
+		ResponseEmbedSuccess(s, i, true, "Wallet", p.Sprintf("💰 %dg", user.Money))
 
 	}
 }
