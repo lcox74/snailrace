@@ -9,7 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// CommandBackpack shows the user their backpack of snails
+// CommandActive makes a snail you own one your active snails
 type CommandActive struct{}
 
 func (c *CommandActive) Decleration() *discordgo.ApplicationCommandOption {
