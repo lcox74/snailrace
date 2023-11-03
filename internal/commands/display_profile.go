@@ -5,6 +5,9 @@ import (
 	"math"
 	"strings"
 
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
+
 	"github.com/lcox74/snailrace/internal/models"
 
 	"github.com/bwmarrin/discordgo"
@@ -95,9 +98,10 @@ func (c *CommandDisplayProfile) AppHandler(state *models.State) func(s *discordg
 			return
 		}
 
+		p := message.NewPrinter(language.English)
 		ResponseEmbedSuccess(s, i, personal, "Profile",
-			fmt.Sprintf("**Username**: %s\n\n**Level**: %d\n**Progress**: %s\n\n**Win Rate**: %d%%\n**Races**: %d\n**Total Snails**: %d\n\n🐌 %s\n💰 %dg",
-				i.Member.User.Username, user.Level, progressBar, winRate, user.Races, len(allSnails), activeSnail.Name, user.Money))
+			p.Sprintf("**Username**: %s\n\n**Level**: %d\n**Progress**: %s\n\n**Win Rate**: %d%%\n**Races**: %d\n**Total Snails**: %d\n\n🐌 %s\n💰 %dg",
+				discorduser.Username, user.Level, progressBar, winRate, user.Races, len(allSnails), activeSnail.Name, user.Money))
 	}
 }
 
