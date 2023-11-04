@@ -36,8 +36,9 @@ type Snail struct {
 	Races uint64 `json:"races" gorm:"default:0"`
 	Wins  uint64 `json:"wins" gorm:"default:0"`
 
-	Mood  float64    `json:"mood" gorm:"default:0"`
-	Stats SnailStats `json:"stats" gorm:"embedded"`
+	Mood  float64        `json:"mood" gorm:"default:0"`
+	Tier  SnailStatLevel `json:"tier" gorm:"default:0"`
+	Stats SnailStats     `json:"stats" gorm:"embedded"`
 
 	racePosition   float64 `json:"-" gorm:"-"`
 	currentStamina float64 `json:"-" gorm:"-"`
@@ -101,6 +102,7 @@ func CreateSnail(db *gorm.DB, owner User, levelType SnailStatLevel) (*Snail, err
 	}
 	snail.Stats.GenerateStats(levelType)
 	snail.Name = generateSnailName()
+	snail.Tier = levelType
 
 	result := db.Create(snail)
 	return snail, result.Error
@@ -132,6 +134,14 @@ func GetActiveSnail(db *gorm.DB, owner User) (*Snail, error) {
 	return snail, result.Error
 }
 
+func GetSnailFromID(db *gorm.DB, owner User, snailID string) (*Snail, error) {
+	log.Debugf("GetSnailFromID(owner: %s, snailID: %s)", owner.DiscordID, snailID)
+
+	snail := &Snail{}
+	result := db.Where("owner_id = ? AND id = ?", owner.DiscordID, snailID).First(snail)
+	return snail, result.Error
+}
+
 func SetActiveSnail(db *gorm.DB, owner User, snail Snail) error {
 	log.Debugf("SetActiveSnail(owner: %s, snail: %s)", owner.DiscordID, snail.Name)
 
@@ -141,6 +151,12 @@ func SetActiveSnail(db *gorm.DB, owner User, snail Snail) error {
 	// Set the new snail to active
 	result := db.Model(&snail).Update("active", true)
 	return result.Error
+}
+
+func GetLevelProgress(snail *Snail) float64 {
+	threshold := snail.Level * 100
+	progress := float64(snail.Exp * 100 / threshold)
+	return progress
 }
 
 func (snail *Snail) AddXP(db *gorm.DB, amount uint64) error {
