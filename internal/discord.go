@@ -65,6 +65,7 @@ func RegisterCommands(state *models.State, s *discordgo.Session) error {
 		&commands.CommandBackpack{},
 		&commands.CommandActive{},
 		&commands.CommandBuy{},
+		&commands.CommandDisplayProfile{},
 	}
 
 	// Create Full decleration

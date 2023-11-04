@@ -42,7 +42,7 @@ the following in the project directory:
 
 ```bash
 # Build and Compile the program
-go build cmd/snailrace
+go build .
 
 # Run the Program
 ./snailrace

@@ -2,8 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"math"
-	"strings"
 
 	"github.com/lcox74/snailrace/internal/models"
 	log "github.com/sirupsen/logrus"
@@ -36,14 +34,6 @@ func (c *CommandBackpack) AppHandler(state *models.State) func(s *discordgo.Sess
 		user, snails, active := GetBackpackState(state, s, i) // error handling done within
 		RenderBackpack(state, s, i, snails, active, user)
 	}
-}
-
-// this is in display_profile, remove later when it gets merged
-func GenerateProgressBar(percentage float64) string {
-	numSquares := int(math.Floor(percentage / 10))
-	progress := strings.Repeat("🟩", numSquares)
-	progress += strings.Repeat("⬛", 10-numSquares)
-	return progress
 }
 
 func (c *CommandBackpack) ActionHandler(state *models.State, options ...string) map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {

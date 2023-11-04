@@ -27,6 +27,14 @@ func GetUserByDiscordID(db *gorm.DB, discordID string) (*User, error) {
 	return user, result.Error
 }
 
+func GetPercentageLevelProgress(db *gorm.DB, user *User) float64 {
+	log.Debugf("GetPercentageLevelProgress(user: %s)", user.DiscordID)
+
+	threshold := user.Level * 100
+	percentage := (user.XP * 100 / threshold)
+	return float64(percentage)
+}
+
 func CreateUser(db *gorm.DB, discordID string) (*User, error) {
 	log.Debugf("CreateUser(id: %s)", discordID)
 
