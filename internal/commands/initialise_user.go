@@ -90,7 +90,7 @@ func (c CommandInitialise) respondExisting(s *discordgo.Session, i *discordgo.In
 	}
 
 	// If the user doesn't have an active snail, check if they have any snails
-	if err != gorm.ErrRecordNotFound {
+	if err != gorm.ErrRecordNotFound && err != nil {
 		snails, err := models.GetAllSnails(db, *user)
 		if err != nil && err != gorm.ErrRecordNotFound {
 			log.WithField("cmd", "/init").WithError(err).Warnf("Error getting all snails for user %s", i.Member.User.Username)

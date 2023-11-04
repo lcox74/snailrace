@@ -103,16 +103,25 @@ func randFloat64(min, max float64) float64 {
 // This calculates what the number and remainder would be respective
 // to the snail tier
 func CalcNumAndMax(stat float64, level SnailStatLevel) (float64, float64) {
-	tierProps := map[SnailStatLevel]float64{
+	// different calculation for random snails
+	tiers := map[SnailStatLevel]float64{
 		0: 10,
-		1: 20,
-		2: 30,
-		3: 40,
-		4: 40,
+		1: 15,
+		2: 20,
+		3: 25,
+		4: 20,
 	}
-	maxValue := tierProps[level]
+
+	maxValue := tiers[level]
 	number := math.Floor(stat * 10 / maxValue)
-	return number, 10 - number
+	if level == RandomSnail {
+		return number, 10 - number
+	} else {
+		// the range for each tier is 1-5, but the stats
+		// tend to look better when they are mapped from 10
+		prop := math.Floor(10 * (stat / maxValue))
+		return prop, 10 - prop
+	}
 }
 
 func renderStat(stat float64, level SnailStatLevel) string {

@@ -60,7 +60,6 @@ func (c *CommandBuy) AppHandler(state *models.State) func(s *discordgo.Session, 
 
 		for _, opt := range i.ApplicationCommandData().Options[0].Options {
 			// establish if the user has the capital to purchase this snail (TODO)
-			log.Info(opt.IntValue())
 			canAfford, snailPrice := models.CanUserAffordSnail(*user, models.SnailStatLevel(opt.IntValue()))
 			if !canAfford {
 				log.WithField("cmd", "/buy").WithError(err).Infof("Snail costs %d, you only have %d", snailPrice, user.Money)
