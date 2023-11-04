@@ -36,8 +36,9 @@ type Snail struct {
 	Races uint64 `json:"races" gorm:"default:0"`
 	Wins  uint64 `json:"wins" gorm:"default:0"`
 
-	Mood  float64    `json:"mood" gorm:"default:0"`
-	Stats SnailStats `json:"stats" gorm:"embedded"`
+	Mood  float64        `json:"mood" gorm:"default:0"`
+	Tier  SnailStatLevel `json:"tier" gorm:"default:0"`
+	Stats SnailStats     `json:"stats" gorm:"embedded"`
 
 	racePosition   float64 `json:"-" gorm:"-"`
 	currentStamina float64 `json:"-" gorm:"-"`
@@ -101,6 +102,7 @@ func CreateSnail(db *gorm.DB, owner User, levelType SnailStatLevel) (*Snail, err
 	}
 	snail.Stats.GenerateStats(levelType)
 	snail.Name = generateSnailName()
+	snail.Tier = levelType
 
 	result := db.Create(snail)
 	return snail, result.Error

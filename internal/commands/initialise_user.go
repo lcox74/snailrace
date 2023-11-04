@@ -76,7 +76,7 @@ func (c CommandInitialise) respondCreateNew(s *discordgo.Session, i *discordgo.I
 	// Notify the user that they have been created
 	ResponseEmbedSuccess(s, i, false,
 		fmt.Sprintf("Welcome to Snailrace %s!", i.Member.User.Username),
-		fmt.Sprintf("Your snail is called **%s (lvl. %d)** and has the following stats:\n```\n%s```\n", snail.Name, snail.Level, snail.Stats.RenderStatBlock()),
+		fmt.Sprintf("Your snail is called **%s (lvl. %d)** and has the following stats:\n```\n%s```\n", snail.Name, snail.Level, snail.Stats.RenderStatBlock(models.SnailStatLevel(snail.Tier))),
 	)
 }
 
@@ -112,7 +112,7 @@ func (c CommandInitialise) respondExisting(s *discordgo.Session, i *discordgo.In
 			// Notify the user that they have been created
 			ResponseEmbedSuccess(s, i, false,
 				fmt.Sprintf("Welcome to Snailrace %s!", i.Member.User.Username),
-				fmt.Sprintf("For some reason you had no snails, your snail is called **%s (lvl. %d)** and has the following stats:\n```\n%s```\n", snail.Name, snail.Level, snail.Stats.RenderStatBlock()),
+				fmt.Sprintf("For some reason you had no snails, your snail is called **%s (lvl. %d)** and has the following stats:\n```\n%s```\n", snail.Name, snail.Level, snail.Stats.RenderStatBlock(models.SnailStatLevel(snail.Tier))),
 			)
 			return
 		}
@@ -124,7 +124,7 @@ func (c CommandInitialise) respondExisting(s *discordgo.Session, i *discordgo.In
 	// Respond to the interaction with a message
 	ResponseEmbedInfo(s, i, false,
 		fmt.Sprintf("You are already initialised  %s!", i.Member.User.Username),
-		fmt.Sprintf("Your snail currently active snail is **%s (lvl. %d)** with the following stats:\n```\n%s```\n", snail.Name, snail.Level, snail.Stats.RenderStatBlock()),
+		fmt.Sprintf("Your snail currently active snail is **%s (lvl. %d)** with the following stats:\n```\n%s```\n", snail.Name, snail.Level, snail.Stats.RenderStatBlock(models.SnailStatLevel(snail.Tier))),
 	)
 }
 

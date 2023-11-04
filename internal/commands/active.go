@@ -64,7 +64,7 @@ func (c *CommandActive) AppHandler(state *models.State) func(s *discordgo.Sessio
 				}
 
 				ResponseEmbedSuccess(s, i, true, "New Active Snail Set",
-					fmt.Sprintf("Your active snail was set successfully.\nYour new active snail is: `%s`", snail.Name),
+					fmt.Sprintf("Your active snail was set successfully.\nYour new active snail is: `%s`\n```\n%s```\n", snail.Name, snail.Stats.RenderStatBlock(models.SnailStatLevel(snail.Tier))),
 				)
 
 			default:

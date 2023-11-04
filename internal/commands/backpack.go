@@ -98,7 +98,13 @@ func GetBackpackState(state *models.State, s *discordgo.Session, i *discordgo.In
 func RenderBackpack(state *models.State, s *discordgo.Session, i *discordgo.InteractionCreate,
 	snails []models.Snail, active *models.Snail, user *models.User) {
 	backpack := fmt.Sprintf("Active Snail: **%s**\n\nSnails: **(%d - %d)**\n", active.Name, STARTING_INDEX+1, STARTING_INDEX+10)
-	for i := STARTING_INDEX; i < len(snails); i++ {
+
+	endingIndex := STARTING_INDEX + 10
+	if len(snails)-STARTING_INDEX < 10 {
+		endingIndex = len(snails)
+	}
+
+	for i := STARTING_INDEX; i < endingIndex; i++ {
 		// Get information about snail and pretty it up
 		snailProgress := models.GetLevelProgress(&snails[i])
 		progressBar := GenerateProgressBar(snailProgress)

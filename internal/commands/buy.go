@@ -58,25 +58,56 @@ func (c *CommandBuy) AppHandler(state *models.State) func(s *discordgo.Session, 
 			return
 		}
 
-		// establish if the user has the capital to purchase this snail (TODO)
-
 		for _, opt := range i.ApplicationCommandData().Options[0].Options {
-			snail, err := models.CreateSnail(state.DB, *user, opt.Value.(models.SnailStatLevel))
+			// establish if the user has the capital to purchase this snail (TODO)
+			log.Info(opt.IntValue())
+			canAfford, snailPrice := models.CanUserAffordSnail(*user, models.SnailStatLevel(opt.IntValue()))
+			if !canAfford {
+				log.WithField("cmd", "/buy").WithError(err).Infof("Snail costs %d, you only have %d", snailPrice, user.Money)
+				ResponseEmbedFail(s, i, true,
+					fmt.Sprintf("Snail costs %d, you only have %d", snailPrice, user.Money),
+					"You first need to earn more money before buying this snail.\nTry buying a lower tier snail or trying your luck betting for more gold.",
+				)
+				return
+			}
+
+			// create and purchase the snail
+			err := user.RemoveMoney(state.DB, uint64(snailPrice))
+			if err != nil {
+				log.WithField("cmd", "/buy").WithError(err).Infof("Something went wrong whilst trying to remove %dg from user %s wallet", snailPrice, i.Member.User.Username)
+				ResponseEmbedFail(s, i, true,
+					fmt.Sprintf("Something went wrong whilst trying to remove %dg from your wallet", snailPrice),
+					"Please try purchasing the snail again",
+				)
+				return
+			}
+
+			snail, err := models.CreateSnail(state.DB, *user, models.SnailStatLevel(opt.IntValue()))
 			if err != nil {
 				log.WithField("cmd", "/buy").WithError(err).Infof("Something went wrong in the creation of a %s for %s", opt.Value.(string), i.Member.User.Username)
 				ResponseEmbedFail(s, i, true,
-					"Something went very wrong attempting to purchase a snail",
+					"Something went wrong attempting to purchase a snail",
 					fmt.Sprintf("Please report the following, the snail stat level was %d for %s", opt.Value.(int), i.Member.User.Username),
 				)
 				return
 			}
+
+			// make the new snail their active snail
+			erractiv := models.SetActiveSnail(state.DB, *user, *snail)
+			if erractiv != nil {
+				// if this fails, still continue on regardless, but let them know
+				log.WithField("cmd", "/buy").WithError(err).Infof("Something went wrong setting a purchased snail %d as active", snail.ID)
+				ResponseEmbedFail(s, i, true,
+					"Something went wrong attempting to set the new snail as your active snail",
+					"Please attempt manually setting your new snail as active using `/snailrace active [snail-id]`\n. This snail has been added to your backpack.",
+				)
+			}
+
+			// Enable this if we're creating a backpack id once they have bought a snail
+			// HandleNewSnail(state, s, i, snail, user)
+			ResponseEmbedSuccess(s, i, false, "Congratulations on your New Snail",
+				fmt.Sprintf("New Snail: **%s (lvl. %d)** with the following stats:\n```\n%s```\n", snail.Name, snail.Level, snail.Stats.RenderStatBlock(models.SnailStatLevel(snail.Tier))))
 		}
-
-		// take the money away from the user (TODO)
-
-		// Enable this if we're creating a backpack id once they have bought a snail
-		// HandleNewSnail(state, s, i, snail, user)
-		ResponseEmbedSuccess(s, i, true, "Snailing away", fmt.Sprintf("New Snail Name: %s", user.DiscordID))
 	}
 }
 

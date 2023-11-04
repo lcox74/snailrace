@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"strings"
 )
@@ -22,12 +23,23 @@ const (
 	RandomSnail
 )
 
-func (s SnailStats) RenderStatBlock() string {
+func CanUserAffordSnail(user User, tier SnailStatLevel) (bool, int) {
+	prices := map[int]int{
+		0: 50,
+		1: 100,
+		2: 150,
+		3: 250,
+	}
+	snailPrice := prices[int(tier)]
+	return int(user.Money) >= snailPrice, snailPrice
+}
+
+func (s SnailStats) RenderStatBlock(level SnailStatLevel) string {
 	return fmt.Sprintf(
 		"%-9s%s %.02f\n%-9s%s %.02f\n%-9s%s %.02f\n",
-		"Speed", renderStat(s.Speed), s.Speed,
-		"Stamina", renderStat(s.Stamina), s.Stamina,
-		"Recovery", renderStat(s.Recovery), s.Recovery,
+		"Speed", renderStat(s.Speed, level), s.Speed,
+		"Stamina", renderStat(s.Stamina, level), s.Stamina,
+		"Recovery", renderStat(s.Recovery, level), s.Recovery,
 	)
 }
 
@@ -86,7 +98,24 @@ func randFloat64(min, max float64) float64 {
 	return rand.Float64()*(max-min) + min
 }
 
-func renderStat(stat float64) string {
-	num := int(stat)
-	return fmt.Sprintf("[%s%s]", strings.Repeat("=", num), strings.Repeat(" ", 10-num))
+// This fixes a bug where the stat would surpass the maximum number
+// of characters rendered, thus making a negative repeat error.
+// This calculates what the number and remainder would be respective
+// to the snail tier
+func CalcNumAndMax(stat float64, level SnailStatLevel) (float64, float64) {
+	tierProps := map[SnailStatLevel]float64{
+		0: 10,
+		1: 20,
+		2: 30,
+		3: 40,
+		4: 40,
+	}
+	maxValue := tierProps[level]
+	number := math.Floor(stat * 10 / maxValue)
+	return number, 10 - number
+}
+
+func renderStat(stat float64, level SnailStatLevel) string {
+	num, rem := CalcNumAndMax(stat, level)
+	return fmt.Sprintf("[%s%s]", strings.Repeat("=", int(num)), strings.Repeat(" ", int(rem)))
 }
